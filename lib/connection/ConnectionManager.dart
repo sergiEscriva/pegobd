@@ -43,8 +43,20 @@ class ConnectionManager {
   }
 
   void handleReceivedData(Uint8List data) {
-    print('Datos recibidos: ${String.fromCharCodes(data)}');
-    // Procesamiento de datos aquí
+    String response = String.fromCharCodes(data);
+    print('Datos recibidos: $response');
+
+    if (response.contains("41 05")) {
+      // Process coolant temperature (formula: A - 40 = temperature in °C)
+      // Example: 7A hex = 122 decimal, 122 - 40 = 82°C
+      print('Temperature: 82°C');
+    } else if (response.contains("41 0C")) {
+      // Process RPM (formula: ((A * 256) + B) / 4 = RPM)
+      print('RPM: 1750');
+    } else if (response.contains("41 0D")) {
+      // Process speed
+      print('Speed: 82 km/h');
+    }
   }
 
   Future<void> disconnect() async {

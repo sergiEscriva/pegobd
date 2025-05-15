@@ -3,6 +3,7 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:pegobd/service/BluetoothService.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'MockBluethootService.dart';
 import 'Screen/BluetoothDevicesView.dart';
 import 'connection/ConnectionManager.dart';
 
@@ -27,7 +28,7 @@ class _MyAppState extends State<MyApp> {
     super.initState();
 
     // Creando dependencias (principio de inversión de dependencias)
-    _bluetoothService = BluetoothService();
+    _bluetoothService = MockBluetoothService();
     _connectionManager = ConnectionManager(
       _bluetoothService,
       onConnectionChanged: () => setState(() {}),
