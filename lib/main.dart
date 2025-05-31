@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'MockBluethootService.dart';
 import 'Screen/BluetoothDevicesView.dart';
 import 'connection/ConnectionManager.dart';
+import 'Screen/SensorDashboard.dart';
 
 void main() {
   runApp(MyApp());
@@ -37,7 +38,6 @@ class _MyAppState extends State<MyApp> {
     _initBluetooth();
   }
 
-
   void _initBluetooth() async {
     // Solicitar permisos primero
     bool permissionsGranted = await _requestPermissions();
@@ -61,6 +61,7 @@ class _MyAppState extends State<MyApp> {
 
     await _getPairedDevices();
   }
+
   Future<bool> _requestPermissions() async {
     Map<Permission, PermissionStatus> statuses = await [
       Permission.bluetooth,
@@ -83,13 +84,16 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        body: BluetoothDevicesView(
-          bluetoothState: _bluetoothState,
-          devices: devicesList,
-          connectionManager: _connectionManager,
-          onRefreshDevices: _getPairedDevices,
-        ),
+        body: _connectionManager.isConnected
+            ? SensorDashboard(connectionManager: _connectionManager)
+            : BluetoothDevicesView(
+                bluetoothState: _bluetoothState,
+                devices: devicesList,
+                connectionManager: _connectionManager,
+                onRefreshDevices: _getPairedDevices,
+              ),
       ),
     );
   }
 }
+
