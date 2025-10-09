@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../connection/ConnectionManager.dart';
 import '../model/SensorData.dart';
-import '../sensors/OBDSensors.dart';
 
 class SensorDashboard extends StatefulWidget {
   final ConnectionManager connectionManager;
@@ -35,18 +34,33 @@ class _SensorDashboardState extends State<SensorDashboard> {
     super.dispose();
   }
 
-  double? _getDouble(String pid) {
-    final val = _sensors[pid]?.value;
-    if (val == null) return null;
-    return double.tryParse(val);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Tacógrafo OBD')),
       body: widget.connectionManager.isConnected
-          ? _buildDashboard()
+          ? Column(
+              children: [
+                // Banner indicativo de modo
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(8),
+                  color: widget.connectionManager.isSimulatorMode ? Colors.blue[100] : Colors.green[100],
+                  child: Text(
+                    widget.connectionManager.isSimulatorMode
+                        ? '🔧 MODO SIMULADOR - Datos de prueba'
+                        : '🚗 MODO REAL - Datos del vehículo',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: widget.connectionManager.isSimulatorMode ? Colors.blue[800] : Colors.green[800],
+                    ),
+                  ),
+                ),
+                // Dashboard de sensores
+                Expanded(child: _buildDashboard()),
+              ],
+            )
           : Center(child: Text('No hay conexión con dispositivo OBD')),
     );
   }
@@ -78,7 +92,7 @@ class _SensorDashboardState extends State<SensorDashboard> {
     final double? value = double.tryParse(sensor.value);
     final String unit = sensor.unit;
     final String name = sensor.name;
-    final String pid = sensor.pid;
+
     // Selección de tipo de gráfico según unidad o nombre
     if (unit == 'rpm' || unit == 'km/h') {
       // Gauge circular para RPM y velocidad
@@ -122,7 +136,15 @@ class _SensorDashboardState extends State<SensorDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.black87,
+          ),
+        ),
+        SizedBox(height: 8),
         SizedBox(
           width: 200,
           height: isSemi ? 120 : 180,
@@ -141,7 +163,11 @@ class _SensorDashboardState extends State<SensorDashboard> {
                     showTicks: true,
                     showLabels: true,
                     ranges: [
-                      GaugeRange(startValue: min, endValue: max, color: color.withOpacity(0.2)),
+                      GaugeRange(
+                        startValue: min,
+                        endValue: max,
+                        color: color.withValues(alpha: 0.2)
+                      ),
                     ],
                     pointers: [
                       NeedlePointer(value: animatedValue),
@@ -177,7 +203,14 @@ class _SensorDashboardState extends State<SensorDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.black87,
+          ),
+        ),
         SizedBox(height: 8),
         TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.0, end: value != null ? ((value - min) / (max - min)).clamp(0.0, 1.0) : 0.0),
@@ -187,13 +220,16 @@ class _SensorDashboardState extends State<SensorDashboard> {
             return LinearProgressIndicator(
               value: animatedValue,
               minHeight: 24,
-              backgroundColor: color.withOpacity(0.2),
+              backgroundColor: color.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation<Color>(color),
             );
           },
         ),
         SizedBox(height: 4),
-        Text(value != null ? '${value.toStringAsFixed(1)} $unit' : 'N/A', style: TextStyle(fontSize: 16)),
+        Text(
+          value != null ? '${value.toStringAsFixed(1)} $unit' : 'N/A',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
       ],
     );
   }
@@ -206,7 +242,14 @@ class _SensorDashboardState extends State<SensorDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.black87,
+          ),
+        ),
         SizedBox(height: 8),
         Text(
           value.isNotEmpty ? '$value $unit' : 'N/A',

@@ -22,6 +22,25 @@ class MockBluetoothService extends BluetoothService {
   Future<BluetoothConnection> connectToDevice(BluetoothDevice device) async {
     return MockBluetoothConnection();
   }
+  @override
+  Future<bool> checkPermissions() async {
+    return true; // Siempre permitido en simulador
+  }
+
+  @override
+  Future<BluetoothState> getState() async {
+    return BluetoothState.STATE_ON;
+  }
+
+  @override
+  Stream<BluetoothState> onStateChanged() {
+    return Stream.value(BluetoothState.STATE_ON);
+  }
+
+  @override
+  Future<void> disconnect(BluetoothConnection? connection) async {
+    await connection?.close();
+  }
 }
 
 class MockBluetoothConnection implements BluetoothConnection {

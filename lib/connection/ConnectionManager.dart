@@ -20,6 +20,9 @@ class ConnectionManager {
   bool isConnected = false;
   BluetoothDevice? connectedDevice;
 
+  // Detectar si está en modo simulador
+  bool get isSimulatorMode => _service is MockBluetoothService;
+
   // Para notificar cambios de estado
   final VoidCallback onConnectionChanged;
 
@@ -169,4 +172,3 @@ class ConnectionManager {
     _sensorStreamController.close();
   }
 }
-
