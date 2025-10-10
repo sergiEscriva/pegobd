@@ -43,15 +43,26 @@ class MockBluetoothService extends BluetoothService {
   }
 
   @override
-  Future<void> startDiscovery() {
-    // TODO: implement startDiscovery
-    throw UnimplementedError();
+  Future<void> startDiscovery() async {
+    // En modo simulador no hace falta descubrimiento
+    return Future.value();
   }
 
   @override
-  Future<void> stopDiscovery() {
-    // TODO: implement stopDiscovery
-    throw UnimplementedError();
+  Future<void> stopDiscovery() async {
+    // En modo simulador no hace falta detener descubrimiento
+    return Future.value();
+  }
+
+  @override
+  Stream<BluetoothDiscoveryResult> onDiscovery() {
+    // En modo simulador retorna stream vacío
+    return Stream.empty();
+  }
+
+  @override
+  Future<bool> isDiscovering() async {
+    return false; // Siempre false en simulador
   }
 }
 

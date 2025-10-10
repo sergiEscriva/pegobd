@@ -6,8 +6,9 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 
 import '../MockBluethootService.dart';
 import '../model/SensorData.dart';
-import '../sensors/OBDSensors.dart';  // Importación de la clase de sensores
+import '../sensors/OBDSensors.dart';
 import '../service/BluetoothService.dart';
+import '../utils/ELM327Communication.dart';
 import 'OBDReader.dart';
 
 class ConnectionManager {
@@ -43,6 +44,16 @@ class ConnectionManager {
 
     try {
       _connection = await _service.connectToDevice(device);
+
+      // AÑADIR INICIALIZACIÓN ELM327 PARA DISPOSITIVOS REALES
+      if (_connection != null && !isSimulatorMode) {
+        bool initialized = await ELM327Communication.initializeELM327(_connection!);
+        if (!initialized) {
+          print("Advertencia: Inicialización ELM327 falló, continuando...");
+        }
+      }
+      // FIN DE INICIALIZACIÓN ELM327
+
       isConnected = true;
 
       _connection!.input!.listen((data) {

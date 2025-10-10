@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:pegobd/service/BluetoothService.dart';
@@ -27,7 +28,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   BluetoothService? _bluetoothService;
-  late ConnectionManager _connectionManager; // Cambiar a late en vez de nullable
+  ConnectionManager? _connectionManager;
 
   BluetoothState _bluetoothState = BluetoothState.UNKNOWN;
   List<BluetoothDevice> devicesList = [];
@@ -39,13 +40,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _initializeApp();
-  }
-
-  // Inicializar la aplicación
-  Future<void> _initializeApp() async {
-    await _loadSavedMode();
-    _initializeServices();
+    _loadSavedMode();
   }
 
   // Cargar modo guardado
@@ -56,6 +51,8 @@ class _MyAppState extends State<MyApp> {
     setState(() {
       _currentMode = savedMode == 'real' ? OperationMode.real : OperationMode.simulator;
     });
+
+    _initializeServices();
   }
 
   // Guardar modo seleccionado
@@ -79,8 +76,8 @@ class _MyAppState extends State<MyApp> {
       onConnectionChanged: () {
         setState(() {
           // Detectar si está conectado a un dispositivo real
-          if (_connectionManager.isConnected) {
-            _isConnectedToRealDevice = !_connectionManager.isSimulatorMode;
+          if (_connectionManager!.isConnected) {
+            _isConnectedToRealDevice = !_connectionManager!.isSimulatorMode;
           } else {
             _isConnectedToRealDevice = false;
           }
@@ -95,6 +92,69 @@ class _MyAppState extends State<MyApp> {
     _initBluetooth();
   }
 
+  Future<void> _getPairedDevices() async {
+    if (_bluetoothService == null) return;
+
+    // Obtener dispositivos emparejados
+    final pairedDevices = await _bluetoothService!.getPairedDevices();
+
+    setState(() {
+      devicesList = pairedDevices;
+    });
+
+    // Iniciar búsqueda de dispositivos no emparejados
+    await _startDeviceDiscovery();
+  }
+
+  // NUEVO MÉTODO PARA DESCUBRIMIENTO DE DISPOSITIVOS
+  Future<void> _startDeviceDiscovery() async {
+    if (_bluetoothService == null || _currentMode != OperationMode.real) return;
+
+    try {
+      await _bluetoothService!.startDiscovery();
+
+      // Escuchar dispositivos descubiertos
+      _bluetoothService!.onDiscovery().listen((result) {
+        if (_isOBDDevice(result.device)) {
+          // Agregar solo si no está ya en la lista
+          if (!devicesList.any((device) => device.address == result.device.address)) {
+            setState(() {
+              devicesList.add(result.device);
+            });
+          }
+        }
+      });
+
+      // Detener búsqueda después de 15 segundos
+      Timer(Duration(seconds: 15), () async {
+        await _bluetoothService!.stopDiscovery();
+      });
+    } catch (e) {
+      print("Error en descubrimiento de dispositivos: $e");
+    }
+  }
+
+  // NUEVO MÉTODO PARA DETECTAR DISPOSITIVOS OBD
+  bool _isOBDDevice(BluetoothDevice device) {
+    final name = device.name?.toUpperCase() ?? '';
+    final address = device.address.toUpperCase();
+
+    // Nombres comunes de adaptadores ELM327
+    final obdNames = [
+      'OBDII', 'OBD2', 'OBD-II', 'ELM327', 'ELM',
+      'VLINK', 'V-LINK', 'ICAR', 'VIECAR', 'VGATE',
+      'MINI', 'SCANNER', 'DIAGNOSTIC', 'AUTO'
+    ];
+
+    // También verificar patrones de direcciones MAC comunes
+    final commonPrefixes = ['00:1D:A5', '86:F3', '66:66'];
+
+    bool nameMatch = obdNames.any((obdName) => name.contains(obdName));
+    bool addressMatch = commonPrefixes.any((prefix) => address.startsWith(prefix));
+
+    return nameMatch || addressMatch || name.isEmpty; // Algunos dispositivos aparecen sin nombre
+  }
+
   // Cambiar modo de operación
   void _switchMode(OperationMode newMode) {
     setState(() {
@@ -105,7 +165,7 @@ class _MyAppState extends State<MyApp> {
     _saveMode(newMode);
 
     // Reinicializar servicios
-    _connectionManager.disconnect();
+    _connectionManager?.disconnect();
     _initializeServices();
   }
 
@@ -147,19 +207,11 @@ class _MyAppState extends State<MyApp> {
     return statuses.values.every((status) => status.isGranted);
   }
 
-  Future<void> _getPairedDevices() async {
-    if (_bluetoothService == null) return;
-
-    final devices = await _bluetoothService!.getPairedDevices();
-    setState(() {
-      devicesList = devices;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
     // Mostrar pantalla de carga mientras se inicializa
-    if (!_isInitialized) {
+    if (!_isInitialized || _connectionManager == null) {
       return MaterialApp(
         theme: AppTheme.getSimulatorModeTheme(),
         home: Scaffold(
@@ -320,12 +372,12 @@ class _MyAppState extends State<MyApp> {
 
             // Contenido principal
             Expanded(
-              child: _connectionManager.isConnected
-                  ? MainDashboard(connectionManager: _connectionManager)
+              child: _connectionManager!.isConnected
+                  ? MainDashboard(connectionManager: _connectionManager!)
                   : BluetoothDevicesView(
                 bluetoothState: _bluetoothState,
                 devices: devicesList,
-                connectionManager: _connectionManager,
+                connectionManager: _connectionManager!,
                 onRefreshDevices: _getPairedDevices,
               ),
             ),
