@@ -106,53 +106,62 @@ class _MyAppState extends State<MyApp> {
     await _startDeviceDiscovery();
   }
 
-  // NUEVO MÉTODO PARA DESCUBRIMIENTO DE DISPOSITIVOS
+  // NUEVO MÉTODO PARA DESCUBRIMIENTO MEJORADO
   Future<void> _startDeviceDiscovery() async {
     if (_bluetoothService == null || _currentMode != OperationMode.real) return;
 
     try {
+      print("🔍 Iniciando búsqueda de dispositivos...");
       await _bluetoothService!.startDiscovery();
 
-      // Escuchar dispositivos descubiertos
+      // Escuchar dispositivos descubiertos - MOSTRAR TODOS LOS DISPOSITIVOS
       _bluetoothService!.onDiscovery().listen((result) {
-        if (_isOBDDevice(result.device)) {
-          // Agregar solo si no está ya en la lista
-          if (!devicesList.any((device) => device.address == result.device.address)) {
-            setState(() {
-              devicesList.add(result.device);
-            });
-          }
+        // MOSTRAR TODOS LOS DISPOSITIVOS, no solo OBD
+        print("📱 Dispositivo encontrado: ${result.device.name ?? 'Sin nombre'} - ${result.device.address}");
+
+        // Agregar solo si no está ya en la lista
+        if (!devicesList.any((device) => device.address == result.device.address)) {
+          setState(() {
+            devicesList.add(result.device);
+          });
+          print("✅ Dispositivo agregado a la lista");
         }
       });
 
-      // Detener búsqueda después de 15 segundos
-      Timer(Duration(seconds: 15), () async {
+      // Detener búsqueda después de 30 segundos (más tiempo)
+      Timer(Duration(seconds: 30), () async {
         await _bluetoothService!.stopDiscovery();
+        print("🛑 Búsqueda de dispositivos completada");
       });
+
     } catch (e) {
-      print("Error en descubrimiento de dispositivos: $e");
+      print("❌ Error en descubrimiento de dispositivos: $e");
     }
   }
 
-  // NUEVO MÉTODO PARA DETECTAR DISPOSITIVOS OBD
+  // MÉTODO MEJORADO PARA DETECTAR DISPOSITIVOS OBD (SOLO PARA IDENTIFICACIÓN VISUAL)
   bool _isOBDDevice(BluetoothDevice device) {
     final name = device.name?.toUpperCase() ?? '';
     final address = device.address.toUpperCase();
 
-    // Nombres comunes de adaptadores ELM327
+    // Nombres comunes de adaptadores ELM327/OBD2
     final obdNames = [
-      'OBDII', 'OBD2', 'OBD-II', 'ELM327', 'ELM',
-      'VLINK', 'V-LINK', 'ICAR', 'VIECAR', 'VGATE',
-      'MINI', 'SCANNER', 'DIAGNOSTIC', 'AUTO'
+      'OBDII', 'OBD2', 'OBD-II', 'ELM327', 'ELM', 'ELMDEV',
+      'VLINK', 'V-LINK', 'ICAR', 'VIECAR', 'VGATE', 'VEEPEAK',
+      'MINI', 'SCANNER', 'DIAGNOSTIC', 'AUTO', 'CAR', 'VEHICLE',
+      'TORQUE', 'KIWI', 'BAFX', 'BLUETOOTH-V', 'HC-05', 'HC-06'
     ];
 
-    // También verificar patrones de direcciones MAC comunes
-    final commonPrefixes = ['00:1D:A5', '86:F3', '66:66'];
+    // Patrones de direcciones MAC comunes de adaptadores ELM327
+    final commonPrefixes = [
+      '00:1D:A5', '86:F3', '66:66', '20:13', '20:14', '20:15', '20:16',
+      '00:04:3E', '00:0C:78', '00:15:83', '00:21:13', 'AA:BB:CC'
+    ];
 
     bool nameMatch = obdNames.any((obdName) => name.contains(obdName));
     bool addressMatch = commonPrefixes.any((prefix) => address.startsWith(prefix));
 
-    return nameMatch || addressMatch || name.isEmpty; // Algunos dispositivos aparecen sin nombre
+    return nameMatch || addressMatch;
   }
 
   // Cambiar modo de operación

@@ -92,48 +92,89 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
 
               return Card(
                 margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: ListTile(
-                  leading: Icon(
-                    _getDeviceIcon(device),
-                    color: isConnectedToThisDevice ? Colors.green : Colors.grey,
-                    size: 32,
-                  ),
-                  title: Text(
-                    device.name?.isNotEmpty == true ? device.name! : 'Dispositivo Desconocido',
-                    style: TextStyle(
-                      fontWeight: isConnectedToThisDevice ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Dirección: ${device.address}'),
-                      Text(
-                        'Estado: ${device.isBonded ? "Emparejado" : "No emparejado"}',
-                        style: TextStyle(
-                          color: device.isBonded ? Colors.green : Colors.orange,
-                          fontSize: 12,
+                elevation: _isPossibleOBDDevice(device) ? 4 : 2, // Más elevación para posibles OBD
+                child: Container(
+                  decoration: _isPossibleOBDDevice(device) ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.green, width: 2),
+                  ) : null,
+                  child: ListTile(
+                    leading: Stack(
+                      children: [
+                        Icon(
+                          _getDeviceIcon(device),
+                          color: isConnectedToThisDevice ? Colors.green : Colors.grey,
+                          size: 32,
                         ),
-                      ),
-                    ],
-                  ),
-                  trailing: isConnectedToThisDevice
-                      ? ElevatedButton.icon(
-                    onPressed: widget.connectionManager.disconnect,
-                    icon: Icon(Icons.close, size: 16),
-                    label: Text('Desconectar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
+                        if (_isPossibleOBDDevice(device))
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.check,
+                                size: 8,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                  )
-                      : ElevatedButton.icon(
-                    onPressed: () => widget.connectionManager.connect(device),
-                    icon: Icon(Icons.bluetooth_connected, size: 16),
-                    label: Text('Conectar'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            device.name?.isNotEmpty == true ? device.name! : 'Dispositivo Desconocido',
+                            style: TextStyle(
+                              fontWeight: isConnectedToThisDevice ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                        if (_isPossibleOBDDevice(device))
+                          Chip(
+                            label: Text('OBD?', style: TextStyle(fontSize: 10)),
+                            backgroundColor: Colors.green[100],
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Dirección: ${device.address}'),
+                        Text(
+                          'Estado: ${device.isBonded ? "Emparejado" : "No emparejado"}',
+                          style: TextStyle(
+                            color: device.isBonded ? Colors.green : Colors.orange,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: isConnectedToThisDevice
+                        ? ElevatedButton.icon(
+                      onPressed: widget.connectionManager.disconnect,
+                      icon: Icon(Icons.close, size: 16),
+                      label: Text('Desconectar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
+                    )
+                        : ElevatedButton.icon(
+                      onPressed: () => widget.connectionManager.connect(device),
+                      icon: Icon(Icons.bluetooth_connected, size: 16),
+                      label: Text('Conectar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -204,9 +245,45 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
 
   IconData _getDeviceIcon(BluetoothDevice device) {
     final name = device.name?.toUpperCase() ?? '';
-    if (name.contains('ELM') || name.contains('OBD')) {
-      return Icons.car_repair;
+
+    // Identificar tipo de dispositivo
+    if (name.contains('ELM') || name.contains('OBD') || name.contains('DIAGNOSTIC')) {
+      return Icons.car_repair; // Icono de coche para OBD
+    } else if (name.contains('HEADPHONE') || name.contains('EARBUDS') || name.contains('AUDIO')) {
+      return Icons.headphones;
+    } else if (name.contains('PHONE') || name.contains('ANDROID') || name.contains('IPHONE')) {
+      return Icons.phone_android;
+    } else if (name.contains('WATCH') || name.contains('BAND')) {
+      return Icons.watch;
+    } else if (name.contains('KEYBOARD')) {
+      return Icons.keyboard;
+    } else if (name.contains('MOUSE')) {
+      return Icons.mouse;
     }
-    return Icons.bluetooth;
+
+    return Icons.bluetooth; // Icono genérico para otros dispositivos
+  }
+
+  // NUEVO MÉTODO PARA IDENTIFICAR SI ES POSIBLE DISPOSITIVO OBD
+  bool _isPossibleOBDDevice(BluetoothDevice device) {
+    final name = device.name?.toUpperCase() ?? '';
+    final address = device.address.toUpperCase();
+
+    final obdNames = [
+      'OBDII', 'OBD2', 'OBD-II', 'ELM327', 'ELM', 'ELMDEV',
+      'VLINK', 'V-LINK', 'ICAR', 'VIECAR', 'VGATE', 'VEEPEAK',
+      'MINI', 'SCANNER', 'DIAGNOSTIC', 'AUTO', 'CAR', 'VEHICLE',
+      'TORQUE', 'KIWI', 'BAFX', 'BLUETOOTH-V', 'HC-05', 'HC-06'
+    ];
+
+    final commonPrefixes = [
+      '00:1D:A5', '86:F3', '66:66', '20:13', '20:14', '20:15', '20:16',
+      '00:04:3E', '00:0C:78', '00:15:83', '00:21:13', 'AA:BB:CC'
+    ];
+
+    bool nameMatch = obdNames.any((obdName) => name.contains(obdName));
+    bool addressMatch = commonPrefixes.any((prefix) => address.startsWith(prefix));
+
+    return nameMatch || addressMatch || name.isEmpty; // Sin nombre también podría ser OBD
   }
 }
