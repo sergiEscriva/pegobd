@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../connection/ConnectionManager.dart';
 import '../model/SensorData.dart';
+import '../theme/app_theme.dart';
 
 class RealModeDashboard extends StatefulWidget {
   final ConnectionManager connectionManager;
@@ -53,27 +54,56 @@ class _RealModeDashboardState extends State<RealModeDashboard> {
 
     return Column(
       children: [
-        // Banner indicativo de modo REAL
+        // Banner indicativo de modo REAL mejorado
         Container(
           width: double.infinity,
-          padding: EdgeInsets.all(12),
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.green[700]!, Colors.green[500]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppTheme.primaryGreen, AppTheme.lightGreen],
             ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryGreen.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.directions_car, color: Colors.white, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'MODO REAL - Datos del vehículo',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.white,
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Icon(Icons.directions_car, color: Colors.white, size: 28),
+              ),
+              SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'MODO REAL',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.white,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  Text(
+                    'Datos en vivo del vehículo',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

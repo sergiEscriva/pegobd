@@ -41,6 +41,18 @@ class MockBluetoothService extends BluetoothService {
   Future<void> disconnect(BluetoothConnection? connection) async {
     await connection?.close();
   }
+
+  @override
+  Future<void> startDiscovery() {
+    // TODO: implement startDiscovery
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> stopDiscovery() {
+    // TODO: implement stopDiscovery
+    throw UnimplementedError();
+  }
 }
 
 class MockBluetoothConnection implements BluetoothConnection {

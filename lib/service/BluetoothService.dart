@@ -7,6 +7,8 @@ abstract class BluetoothService {
   Future<BluetoothState> getState();
   Stream<BluetoothState> onStateChanged();
   Future<List<BluetoothDevice>> getPairedDevices();
+  Future<void> startDiscovery();
+  Future<void> stopDiscovery();
   Future<BluetoothConnection> connectToDevice(BluetoothDevice device);
   Future<void> disconnect(BluetoothConnection? connection);
 }
@@ -14,6 +16,19 @@ abstract class BluetoothService {
 // Crear implementación real
 class RealBluetoothService extends BluetoothService {
   final FlutterBluetoothSerial _bluetooth = FlutterBluetoothSerial.instance;
+  @override
+  Future<void> startDiscovery() async {
+    if (await _bluetooth.isDiscovering != true) {
+      await _bluetooth.cancelDiscovery();
+    }
+    await _bluetooth.startDiscovery();
+  }
+
+  @override
+  Future<void> stopDiscovery() async {
+    await _bluetooth.cancelDiscovery();
+  }
+
 
   @override
   Future<bool> checkPermissions() async {

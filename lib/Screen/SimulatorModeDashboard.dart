@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../connection/ConnectionManager.dart';
 import '../model/SensorData.dart';
+import '../theme/app_theme.dart';
 
 class SimulatorModeDashboard extends StatefulWidget {
   final ConnectionManager connectionManager;
@@ -53,27 +54,56 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
 
     return Column(
       children: [
-        // Banner indicativo de modo SIMULADOR
+        // Banner indicativo de modo SIMULADOR mejorado
         Container(
           width: double.infinity,
-          padding: EdgeInsets.all(12),
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Colors.blue[700]!, Colors.blue[500]!],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppTheme.primaryBlue, AppTheme.lightBlue],
             ),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryBlue.withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.build, color: Colors.white, size: 24),
-              SizedBox(width: 8),
-              Text(
-                'MODO SIMULADOR - Datos de prueba',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: Colors.white,
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: Icon(Icons.build, color: Colors.white, size: 28),
+              ),
+              SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'MODO SIMULADOR',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.white,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  Text(
+                    'Datos de prueba generados',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -346,4 +376,3 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
     );
   }
 }
-
