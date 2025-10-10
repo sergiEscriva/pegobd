@@ -21,9 +21,11 @@ class _SensorDashboardState extends State<SensorDashboard> {
   void initState() {
     super.initState();
     _sensorSubscription = widget.connectionManager.sensorStream.listen((sensorsData) {
-      setState(() {
-        _sensors = sensorsData;
-      });
+      if (mounted) {
+        setState(() {
+          _sensors = sensorsData;
+        });
+      }
     });
     widget.connectionManager.requestAllSensors();
   }
@@ -37,7 +39,18 @@ class _SensorDashboardState extends State<SensorDashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Tacógrafo OBD')),
+      appBar: AppBar(
+        title: Text('Tacógrafo OBD'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: () {
+              widget.connectionManager.requestAllSensors();
+            },
+            tooltip: 'Actualizar sensores',
+          ),
+        ],
+      ),
       body: widget.connectionManager.isConnected
           ? Column(
               children: [
@@ -57,30 +70,62 @@ class _SensorDashboardState extends State<SensorDashboard> {
                     ),
                   ),
                 ),
-                // Dashboard de sensores
+                // Dashboard de sensores con scroll
                 Expanded(child: _buildDashboard()),
               ],
             )
-          : Center(child: Text('No hay conexión con dispositivo OBD')),
+          : Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.bluetooth_disabled, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No hay conexión con dispositivo OBD',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                  SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: Icon(Icons.arrow_back),
+                    label: Text('Volver a conexiones'),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
   Widget _buildDashboard() {
     if (_sensors.isEmpty) {
-      return Center(child: CircularProgressIndicator());
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Cargando sensores...'),
+          ],
+        ),
+      );
     }
+
     // Ordenar por nombre de sensor
     final sensorList = _sensors.values.toList()
       ..sort((a, b) => a.name.compareTo(b.name));
+
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       itemCount: sensorList.length,
       itemBuilder: (context, index) {
         final sensor = sensorList[index];
         return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          elevation: 2,
           child: Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(10.0),
             child: _buildSensorWidget(sensor),
           ),
         );
@@ -145,47 +190,49 @@ class _SensorDashboardState extends State<SensorDashboard> {
           ),
         ),
         SizedBox(height: 8),
-        SizedBox(
-          width: 200,
-          height: isSemi ? 120 : 180,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: min, end: value ?? min),
-            duration: Duration(milliseconds: 700),
-            curve: Curves.easeInOut,
-            builder: (context, animatedValue, child) {
-              return SfRadialGauge(
-                axes: [
-                  RadialAxis(
-                    minimum: min,
-                    maximum: max,
-                    startAngle: isSemi ? 180 : 135,
-                    endAngle: isSemi ? 0 : 45,
-                    showTicks: true,
-                    showLabels: true,
-                    ranges: [
-                      GaugeRange(
-                        startValue: min,
-                        endValue: max,
-                        color: color.withValues(alpha: 0.2)
-                      ),
-                    ],
-                    pointers: [
-                      NeedlePointer(value: animatedValue),
-                    ],
-                    annotations: [
-                      GaugeAnnotation(
-                        widget: Text(
-                          value != null ? '${value.toStringAsFixed(1)} $unit' : 'N/A',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Center(
+          child: SizedBox(
+            width: double.infinity,
+            height: isSemi ? 120 : 180,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: min, end: value ?? min),
+              duration: Duration(milliseconds: 700),
+              curve: Curves.easeInOut,
+              builder: (context, animatedValue, child) {
+                return SfRadialGauge(
+                  axes: [
+                    RadialAxis(
+                      minimum: min,
+                      maximum: max,
+                      startAngle: isSemi ? 180 : 135,
+                      endAngle: isSemi ? 0 : 45,
+                      showTicks: true,
+                      showLabels: true,
+                      ranges: [
+                        GaugeRange(
+                          startValue: min,
+                          endValue: max,
+                          color: color.withOpacity(0.2),
                         ),
-                        angle: isSemi ? 90 : 90,
-                        positionFactor: 0.7,
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
+                      ],
+                      pointers: [
+                        NeedlePointer(value: animatedValue),
+                      ],
+                      annotations: [
+                        GaugeAnnotation(
+                          widget: Text(
+                            value != null ? '${value.toStringAsFixed(1)} $unit' : 'N/A',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          angle: isSemi ? 90 : 90,
+                          positionFactor: 0.7,
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ],
@@ -207,28 +254,39 @@ class _SensorDashboardState extends State<SensorDashboard> {
           title,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: 16,
             color: Colors.black87,
           ),
         ),
         SizedBox(height: 8),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0.0, end: value != null ? ((value - min) / (max - min)).clamp(0.0, 1.0) : 0.0),
-          duration: Duration(milliseconds: 700),
-          curve: Curves.easeInOut,
-          builder: (context, animatedValue, child) {
-            return LinearProgressIndicator(
-              value: animatedValue,
-              minHeight: 24,
-              backgroundColor: color.withValues(alpha: 0.2),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            );
-          },
-        ),
-        SizedBox(height: 4),
-        Text(
-          value != null ? '${value.toStringAsFixed(1)} $unit' : 'N/A',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        Row(
+          children: [
+            Expanded(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(begin: min, end: value ?? min),
+                duration: Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
+                builder: (context, animatedValue, child) {
+                  double progress = ((animatedValue - min) / (max - min)).clamp(0.0, 1.0);
+                  return LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 20,
+                    backgroundColor: color.withOpacity(0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(color),
+                  );
+                },
+              ),
+            ),
+            SizedBox(width: 12),
+            SizedBox(
+              width: 80,
+              child: Text(
+                value != null ? '${value.toStringAsFixed(1)} $unit' : 'N/A',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -239,21 +297,26 @@ class _SensorDashboardState extends State<SensorDashboard> {
     required String value,
     required String unit,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-            color: Colors.black87,
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.black87,
+            ),
           ),
         ),
-        SizedBox(height: 8),
         Text(
-          value.isNotEmpty ? '$value $unit' : 'N/A',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+          '$value $unit',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.blue[700],
+          ),
         ),
       ],
     );

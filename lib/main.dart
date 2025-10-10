@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:pegobd/service/BluetoothService.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'MockBluethootService.dart';
 import 'Screen/BluetoothDevicesView.dart';
+import 'Screen/SplashScreen.dart';
+import 'Screen/LogViewerScreen.dart';
 import 'connection/ConnectionManager.dart';
 import 'Screen/MainDashboard.dart';
 import 'theme/app_theme.dart';
+import 'utils/SharedPreferencesHelper.dart';
+import 'utils/AppLogger.dart';
 
 // Enum para modos de operación
 enum OperationMode {
@@ -17,8 +21,29 @@ enum OperationMode {
   simulator,
 }
 
-void main() {
-  runApp(MyApp());
+void main() async {
+  // Capturar errores de Flutter
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    AppLogger().error(
+      'Flutter Error',
+      error: details.exception,
+      stackTrace: details.stack,
+      tag: 'FLUTTER',
+    );
+  };
+
+  // Capturar errores no manejados
+  runZonedGuarded(() {
+    runApp(MyApp());
+  }, (error, stackTrace) {
+    AppLogger().critical(
+      'Error no manejado en la aplicación',
+      error: error,
+      stackTrace: stackTrace,
+      tag: 'APP',
+    );
+  });
 }
 
 class MyApp extends StatefulWidget {
@@ -35,21 +60,46 @@ class _MyAppState extends State<MyApp> {
   OperationMode _currentMode = OperationMode.simulator;
   bool _showModeSelector = false;
   bool _isInitialized = false;
-  bool _isConnectedToRealDevice = false; // Nueva bandera para controlar conexión real
+  bool _showingSplash = true;
+  bool _isConnectedToRealDevice = false;
+  String _themeMode = 'auto'; // 'light', 'dark', 'auto'
+
+  final AppLogger _logger = AppLogger();
 
   @override
   void initState() {
     super.initState();
-    _loadSavedMode();
+    _initializeApp();
   }
 
-  // Cargar modo guardado
-  Future<void> _loadSavedMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedMode = prefs.getString('operation_mode') ?? 'simulator';
+  @override
+  void dispose() {
+    _connectionManager?.dispose();
+    super.dispose();
+  }
+
+  // Inicialización completa de la app
+  Future<void> _initializeApp() async {
+    try {
+      // Inicializar el sistema de logging
+      await _logger.initialize();
+      await _logger.info('Aplicación iniciada', tag: 'APP');
+
+      await _loadSavedSettings();
+      await Future.delayed(Duration(milliseconds: 500)); // Mínimo tiempo para splash
+    } catch (e, stackTrace) {
+      await _logger.error('Error en inicialización', error: e, stackTrace: stackTrace, tag: 'INIT');
+    }
+  }
+
+  // Cargar configuración guardada
+  Future<void> _loadSavedSettings() async {
+    final savedMode = await SharedPreferencesHelper.getOperationMode();
+    final savedTheme = await SharedPreferencesHelper.getThemeMode();
 
     setState(() {
       _currentMode = savedMode == 'real' ? OperationMode.real : OperationMode.simulator;
+      _themeMode = savedTheme;
     });
 
     _initializeServices();
@@ -57,56 +107,63 @@ class _MyAppState extends State<MyApp> {
 
   // Guardar modo seleccionado
   Future<void> _saveMode(OperationMode mode) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('operation_mode', mode.toString().split('.').last);
+    await SharedPreferencesHelper.saveOperationMode(mode.toString().split('.').last);
   }
 
   // Inicializar servicios según el modo
   void _initializeServices() {
-    // Crear servicio según el modo seleccionado
-    if (_currentMode == OperationMode.real) {
-      _bluetoothService = RealBluetoothService();
-    } else {
-      _bluetoothService = MockBluetoothService();
-    }
+    try {
+      _connectionManager?.dispose();
 
-    // Crear ConnectionManager con callback para detectar tipo de conexión
-    _connectionManager = ConnectionManager(
-      _bluetoothService!,
-      onConnectionChanged: () {
-        setState(() {
-          // Detectar si está conectado a un dispositivo real
-          if (_connectionManager!.isConnected) {
-            _isConnectedToRealDevice = !_connectionManager!.isSimulatorMode;
-          } else {
-            _isConnectedToRealDevice = false;
+      if (_currentMode == OperationMode.real) {
+        _bluetoothService = RealBluetoothService();
+        _logger.info('Servicio Bluetooth Real inicializado', tag: 'SERVICE');
+      } else {
+        _bluetoothService = MockBluetoothService();
+        _logger.info('Servicio Bluetooth Simulador inicializado', tag: 'SERVICE');
+      }
+
+      _connectionManager = ConnectionManager(
+        _bluetoothService!,
+        onConnectionChanged: () {
+          if (mounted) {
+            setState(() {
+              if (_connectionManager!.isConnected) {
+                _isConnectedToRealDevice = !_connectionManager!.isSimulatorMode;
+                _logger.info('Conectado a dispositivo: ${_connectionManager!.connectedDevice?.name}', tag: 'CONNECTION');
+              } else {
+                _isConnectedToRealDevice = false;
+                _logger.info('Desconectado del dispositivo', tag: 'CONNECTION');
+              }
+            });
           }
-        });
-      },
-    );
+        },
+      );
 
-    setState(() {
-      _isInitialized = true;
-    });
+      setState(() {
+        _isInitialized = true;
+      });
 
-    _initBluetooth();
+      _initBluetooth();
+    } catch (e, stackTrace) {
+      _logger.error('Error inicializando servicios', error: e, stackTrace: stackTrace, tag: 'SERVICE');
+    }
   }
 
   Future<void> _getPairedDevices() async {
     if (_bluetoothService == null) return;
 
-    // Obtener dispositivos emparejados
     final pairedDevices = await _bluetoothService!.getPairedDevices();
 
-    setState(() {
-      devicesList = pairedDevices;
-    });
+    if (mounted) {
+      setState(() {
+        devicesList = pairedDevices;
+      });
+    }
 
-    // Iniciar búsqueda de dispositivos no emparejados
     await _startDeviceDiscovery();
   }
 
-  // NUEVO MÉTODO PARA DESCUBRIMIENTO MEJORADO
   Future<void> _startDeviceDiscovery() async {
     if (_bluetoothService == null || _currentMode != OperationMode.real) return;
 
@@ -114,21 +171,19 @@ class _MyAppState extends State<MyApp> {
       print("🔍 Iniciando búsqueda de dispositivos...");
       await _bluetoothService!.startDiscovery();
 
-      // Escuchar dispositivos descubiertos - MOSTRAR TODOS LOS DISPOSITIVOS
       _bluetoothService!.onDiscovery().listen((result) {
-        // MOSTRAR TODOS LOS DISPOSITIVOS, no solo OBD
         print("📱 Dispositivo encontrado: ${result.device.name ?? 'Sin nombre'} - ${result.device.address}");
 
-        // Agregar solo si no está ya en la lista
         if (!devicesList.any((device) => device.address == result.device.address)) {
-          setState(() {
-            devicesList.add(result.device);
-          });
+          if (mounted) {
+            setState(() {
+              devicesList.add(result.device);
+            });
+          }
           print("✅ Dispositivo agregado a la lista");
         }
       });
 
-      // Detener búsqueda después de 30 segundos (más tiempo)
       Timer(Duration(seconds: 30), () async {
         await _bluetoothService!.stopDiscovery();
         print("🛑 Búsqueda de dispositivos completada");
@@ -139,32 +194,7 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  // MÉTODO MEJORADO PARA DETECTAR DISPOSITIVOS OBD (SOLO PARA IDENTIFICACIÓN VISUAL)
-  bool _isOBDDevice(BluetoothDevice device) {
-    final name = device.name?.toUpperCase() ?? '';
-    final address = device.address.toUpperCase();
 
-    // Nombres comunes de adaptadores ELM327/OBD2
-    final obdNames = [
-      'OBDII', 'OBD2', 'OBD-II', 'ELM327', 'ELM', 'ELMDEV',
-      'VLINK', 'V-LINK', 'ICAR', 'VIECAR', 'VGATE', 'VEEPEAK',
-      'MINI', 'SCANNER', 'DIAGNOSTIC', 'AUTO', 'CAR', 'VEHICLE',
-      'TORQUE', 'KIWI', 'BAFX', 'BLUETOOTH-V', 'HC-05', 'HC-06'
-    ];
-
-    // Patrones de direcciones MAC comunes de adaptadores ELM327
-    final commonPrefixes = [
-      '00:1D:A5', '86:F3', '66:66', '20:13', '20:14', '20:15', '20:16',
-      '00:04:3E', '00:0C:78', '00:15:83', '00:21:13', 'AA:BB:CC'
-    ];
-
-    bool nameMatch = obdNames.any((obdName) => name.contains(obdName));
-    bool addressMatch = commonPrefixes.any((prefix) => address.startsWith(prefix));
-
-    return nameMatch || addressMatch;
-  }
-
-  // Cambiar modo de operación
   void _switchMode(OperationMode newMode) {
     setState(() {
       _currentMode = newMode;
@@ -172,8 +202,6 @@ class _MyAppState extends State<MyApp> {
     });
 
     _saveMode(newMode);
-
-    // Reinicializar servicios
     _connectionManager?.disconnect();
     _initializeServices();
   }
@@ -181,7 +209,6 @@ class _MyAppState extends State<MyApp> {
   void _initBluetooth() async {
     if (_bluetoothService == null) return;
 
-    // Solicitar permisos solo en modo real
     if (_currentMode == OperationMode.real) {
       bool permissionsGranted = await _requestPermissions();
       if (!permissionsGranted) {
@@ -191,15 +218,19 @@ class _MyAppState extends State<MyApp> {
     }
 
     _bluetoothService!.getState().then((state) {
-      setState(() {
-        _bluetoothState = state;
-      });
+      if (mounted) {
+        setState(() {
+          _bluetoothState = state;
+        });
+      }
     });
 
     _bluetoothService!.onStateChanged().listen((BluetoothState state) {
-      setState(() {
-        _bluetoothState = state;
-      });
+      if (mounted) {
+        setState(() {
+          _bluetoothState = state;
+        });
+      }
     });
 
     await _getPairedDevices();
@@ -216,20 +247,57 @@ class _MyAppState extends State<MyApp> {
     return statuses.values.every((status) => status.isGranted);
   }
 
+  // Cambiar tema
+  void _changeTheme(String mode) {
+    setState(() {
+      _themeMode = mode;
+    });
+    SharedPreferencesHelper.saveThemeMode(mode);
+  }
+
+  // Determinar si usar tema oscuro
+  bool get _isDarkMode {
+    if (_themeMode == 'dark') return true;
+    if (_themeMode == 'light') return false;
+    // Auto: usar tema del sistema
+    return SchedulerBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Mostrar pantalla de carga mientras se inicializa
+    // Mostrar splash screen
+    if (_showingSplash) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: SplashScreen(
+          onInitializationComplete: () {
+            if (mounted) {
+              setState(() {
+                _showingSplash = false;
+              });
+            }
+          },
+        ),
+      );
+    }
+
+    // Pantalla de carga si aún no está inicializado
     if (!_isInitialized || _connectionManager == null) {
       return MaterialApp(
-        theme: AppTheme.getSimulatorModeTheme(),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: AppTheme.getThemeMode(_themeMode),
         home: Scaffold(
           body: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [AppTheme.primaryBlue, AppTheme.lightBlue],
+                colors: [
+                  Color(0xFF1976D2),
+                  Color(0xFF2196F3),
+                ],
               ),
             ),
             child: Center(
@@ -259,9 +327,9 @@ class _MyAppState extends State<MyApp> {
 
     return MaterialApp(
       title: 'PegOBD',
-      theme: _currentMode == OperationMode.real
-          ? AppTheme.getRealModeTheme()
-          : AppTheme.getSimulatorModeTheme(),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: AppTheme.getThemeMode(_themeMode),
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         appBar: AppBar(
@@ -280,212 +348,165 @@ class _MyAppState extends State<MyApp> {
             ],
           ),
           actions: [
+            // Botón para ver logs
+            IconButton(
+              icon: Icon(Icons.bug_report),
+              tooltip: 'Ver Logs',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => LogViewerScreen()),
+                );
+              },
+            ),
+            // Selector de tema
+            PopupMenuButton<String>(
+              icon: Icon(_themeMode == 'dark' ? Icons.dark_mode : _themeMode == 'light' ? Icons.light_mode : Icons.auto_mode),
+              onSelected: _changeTheme,
+              tooltip: 'Cambiar tema',
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'light',
+                  child: Row(
+                    children: [
+                      Icon(Icons.light_mode, size: 20),
+                      SizedBox(width: 8),
+                      Text('Claro')
+                    ]
+                  )
+                ),
+                PopupMenuItem(
+                  value: 'dark',
+                  child: Row(
+                    children: [
+                      Icon(Icons.dark_mode, size: 20),
+                      SizedBox(width: 8),
+                      Text('Oscuro')
+                    ]
+                  )
+                ),
+                PopupMenuItem(
+                  value: 'auto',
+                  child: Row(
+                    children: [
+                      Icon(Icons.auto_mode, size: 20),
+                      SizedBox(width: 8),
+                      Text('Auto')
+                    ]
+                  )
+                ),
+              ],
+            ),
             IconButton(
               icon: Icon(Icons.settings),
               tooltip: 'Configuración',
               onPressed: () {
-                setState(() {
-                  _showModeSelector = !_showModeSelector;
-                });
+                if (mounted) {
+                  setState(() {
+                    _showModeSelector = !_showModeSelector;
+                  });
+                }
               },
             ),
           ],
         ),
         body: Column(
           children: [
-            // Selector de modo mejorado
+            // Selector de modo si está visible
             if (_showModeSelector)
               Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey[100]!, Colors.grey[200]!],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
+                color: Theme.of(context).colorScheme.primaryContainer,
+                padding: EdgeInsets.all(16),
                 child: Column(
                   children: [
                     Text(
-                      'Seleccionar Modo de Operación',
+                      'Selecciona el modo de operación',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: _buildModeButton(
-                            mode: OperationMode.real,
-                            icon: Icons.directions_car,
-                            label: 'Modo Real',
-                            color: AppTheme.primaryGreen,
-                            isEnabled: _isConnectedToRealDevice,
-                            subtitle: _isConnectedToRealDevice
-                                ? 'Dispositivo conectado'
-                                : 'Requiere dispositivo OBD',
+                          child: ElevatedButton.icon(
+                            onPressed: _currentMode == OperationMode.real
+                                ? null
+                                : () => _switchMode(OperationMode.real),
+                            icon: Icon(Icons.directions_car),
+                            label: Text('Modo Real'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _currentMode == OperationMode.real
+                                  ? AppTheme.secondaryColor
+                                  : null,
+                            ),
                           ),
                         ),
-                        SizedBox(width: 16),
+                        SizedBox(width: 12),
                         Expanded(
-                          child: _buildModeButton(
-                            mode: OperationMode.simulator,
-                            icon: Icons.build_circle,
-                            label: 'Simulador',
-                            color: AppTheme.primaryBlue,
-                            isEnabled: true,
-                            subtitle: 'Datos de prueba',
+                          child: ElevatedButton.icon(
+                            onPressed: _currentMode == OperationMode.simulator
+                                ? null
+                                : () => _switchMode(OperationMode.simulator),
+                            icon: Icon(Icons.build_circle),
+                            label: Text('Simulador'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _currentMode == OperationMode.simulator
+                                  ? AppTheme.primaryColor
+                                  : null,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    if (!_isConnectedToRealDevice && _currentMode == OperationMode.real)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Container(
-                          padding: EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.orange[50],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange[300]!),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Colors.orange[800], size: 20),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Conecta un dispositivo OBD real para activar el Modo Real',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.orange[900],
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
 
-            // Contenido principal
+            // Mensaje de estado de conexión con mejor visibilidad
+            if (_connectionManager != null && _connectionManager!.isConnected)
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                color: _isConnectedToRealDevice ? Colors.green : Colors.blue,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _isConnectedToRealDevice ? Icons.bluetooth_connected : Icons.settings_input_component,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _connectionManager!.connectionStatus,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Vista principal
             Expanded(
               child: _connectionManager!.isConnected
                   ? MainDashboard(connectionManager: _connectionManager!)
                   : BluetoothDevicesView(
-                bluetoothState: _bluetoothState,
-                devices: devicesList,
-                connectionManager: _connectionManager!,
-                onRefreshDevices: _getPairedDevices,
-              ),
+                      key: ValueKey('bluetooth_${_currentMode.toString()}'),
+                      bluetoothState: _bluetoothState,
+                      devices: devicesList,
+                      connectionManager: _connectionManager!,
+                      onRefreshDevices: _getPairedDevices,
+                    ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildModeButton({
-    required OperationMode mode,
-    required IconData icon,
-    required String label,
-    required Color color,
-    required bool isEnabled,
-    required String subtitle,
-  }) {
-    final isSelected = _currentMode == mode;
-    final canSelect = isEnabled && !isSelected;
-
-    return Material(
-      elevation: isSelected ? 8 : 2,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: canSelect ? () => _switchMode(mode) : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: isSelected
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [color, color.withValues(alpha: 0.7)],
-                  )
-                : LinearGradient(
-                    colors: [Colors.white, Colors.grey[50]!],
-                  ),
-            border: Border.all(
-              color: isSelected ? color : (isEnabled ? Colors.grey[300]! : Colors.grey[200]!),
-              width: isSelected ? 3 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 40,
-                color: isSelected
-                    ? Colors.white
-                    : (isEnabled ? color : Colors.grey[400]),
-              ),
-              SizedBox(height: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isSelected
-                      ? Colors.white
-                      : (isEnabled ? AppTheme.textPrimary : Colors.grey[500]),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected
-                      ? Colors.white.withValues(alpha: 0.9)
-                      : (isEnabled ? AppTheme.textSecondary : Colors.grey[400]),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (isSelected)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'ACTIVO',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
         ),
       ),
     );

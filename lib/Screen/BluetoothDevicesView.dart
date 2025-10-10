@@ -13,7 +13,7 @@ class BluetoothDevicesView extends StatefulWidget {
     required this.bluetoothState,
     required this.devices,
     required this.connectionManager,
-    required this.onRefreshDevices,
+    required this.onRefreshDevices, required ValueKey<String> key,
   });
 
   @override
@@ -72,7 +72,14 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
                     ),
                   )
                       : Icon(Icons.refresh),
-                  label: Text(isScanning ? 'Escaneando...' : 'Buscar Dispositivos'),
+                  label: Text(
+                    isScanning ? 'Escaneando...' : 'Buscar Dispositivos',
+                    style: TextStyle(inherit: false, color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ),
             ],
@@ -83,6 +90,7 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
           child: widget.devices.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             itemCount: widget.devices.length,
             itemBuilder: (context, index) {
               BluetoothDevice device = widget.devices[index];
@@ -91,14 +99,15 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
                       widget.connectionManager.connectedDevice == device;
 
               return Card(
-                margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                elevation: _isPossibleOBDDevice(device) ? 4 : 2, // Más elevación para posibles OBD
+                margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                elevation: _isPossibleOBDDevice(device) ? 4 : 2,
                 child: Container(
                   decoration: _isPossibleOBDDevice(device) ? BoxDecoration(
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: Colors.green, width: 2),
                   ) : null,
                   child: ListTile(
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     leading: Stack(
                       children: [
                         Icon(
@@ -134,20 +143,31 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
                             style: TextStyle(
                               fontWeight: isConnectedToThisDevice ? FontWeight.bold : FontWeight.normal,
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         if (_isPossibleOBDDevice(device))
-                          Chip(
-                            label: Text('OBD?', style: TextStyle(fontSize: 10)),
-                            backgroundColor: Colors.green[100],
-                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4.0),
+                            child: Chip(
+                              label: Text('OBD?', style: TextStyle(fontSize: 10)),
+                              backgroundColor: Colors.green[100],
+                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.symmetric(horizontal: 4),
+                            ),
                           ),
                       ],
                     ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Dirección: ${device.address}'),
+                        Text(
+                          'Dirección: ${device.address}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         Text(
                           'Estado: ${device.isBonded ? "Emparejado" : "No emparejado"}',
                           style: TextStyle(
@@ -157,23 +177,44 @@ class _BluetoothDevicesViewState extends State<BluetoothDevicesView> {
                         ),
                       ],
                     ),
-                    trailing: isConnectedToThisDevice
-                        ? ElevatedButton.icon(
-                      onPressed: widget.connectionManager.disconnect,
-                      icon: Icon(Icons.close, size: 16),
-                      label: Text('Desconectar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                      ),
-                    )
-                        : ElevatedButton.icon(
-                      onPressed: () => widget.connectionManager.connect(device),
-                      icon: Icon(Icons.bluetooth_connected, size: 16),
-                      label: Text('Conectar'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
+                    trailing: SizedBox(
+                      width: 110,
+                      child: isConnectedToThisDevice
+                          ? ElevatedButton(
+                        onPressed: widget.connectionManager.disconnect,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.close, size: 14),
+                            SizedBox(width: 4),
+                            Text('Descon.', style: TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          minimumSize: Size(100, 36),
+                          textStyle: TextStyle(inherit: false, fontSize: 11, fontWeight: FontWeight.w500),
+                        ),
+                      )
+                          : ElevatedButton(
+                        onPressed: () => widget.connectionManager.connect(device),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.bluetooth_connected, size: 14),
+                            SizedBox(width: 4),
+                            Text('Conectar', style: TextStyle(fontSize: 11)),
+                          ],
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          minimumSize: Size(100, 36),
+                          textStyle: TextStyle(inherit: false, fontSize: 11, fontWeight: FontWeight.w500),
+                        ),
                       ),
                     ),
                   ),
