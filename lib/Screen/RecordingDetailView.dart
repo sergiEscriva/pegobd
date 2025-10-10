@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:syncfusion_flutter_charts/charts.dart';
+
+import '../features/obd/domain/entities/sensor.dart';
 import '../model/Recording.dart';
-import '../sensors/OBDSensors.dart';
 
 class RecordingDetailView extends StatefulWidget {
   final Recording recording;
@@ -47,9 +48,9 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => RecordingDetailView(
-                      recording: widget.recording,
-                    ),
+                    builder:
+                        (context) =>
+                            RecordingDetailView(recording: widget.recording),
                   ),
                 );
               },
@@ -67,9 +68,10 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
 
           // Gráfico
           Expanded(
-            child: _selectedSensorPid != null
-                ? _buildChart()
-                : Center(child: Text('Selecciona un sensor')),
+            child:
+                _selectedSensorPid != null
+                    ? _buildChart()
+                    : Center(child: Text('Selecciona un sensor')),
           ),
 
           // Estadísticas
@@ -116,7 +118,11 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.compare_arrows, size: 16, color: Colors.orange[900]),
+                  Icon(
+                    Icons.compare_arrows,
+                    size: 16,
+                    color: Colors.orange[900],
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Comparando con: ${widget.comparisonRecording!.name}',
@@ -191,7 +197,8 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
 
   Widget _buildChart() {
     final data = widget.recording.data[_selectedSensorPid!] ?? [];
-    final comparisonData = widget.comparisonRecording?.data[_selectedSensorPid!];
+    final comparisonData =
+        widget.comparisonRecording?.data[_selectedSensorPid!];
 
     if (data.isEmpty) {
       return Center(
@@ -218,9 +225,7 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
           dateFormat: intl.DateFormat('HH:mm:ss'),
         ),
         primaryYAxis: NumericAxis(
-          title: AxisTitle(
-            text: ObdSensors.getSensorUnit(_selectedSensorPid!),
-          ),
+          title: AxisTitle(text: ObdSensors.getSensorUnit(_selectedSensorPid!)),
           labelStyle: TextStyle(fontSize: 10),
         ),
         tooltipBehavior: TooltipBehavior(
@@ -240,9 +245,7 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
             yValueMapper: (point, _) => point.value,
             color: Colors.blue[700],
             width: 2,
-            markerSettings: MarkerSettings(
-              isVisible: false,
-            ),
+            markerSettings: MarkerSettings(isVisible: false),
           ),
           if (comparisonData != null && comparisonData.isNotEmpty)
             LineSeries<SensorDataPoint, DateTime>(
@@ -253,9 +256,7 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
               color: Colors.orange[700],
               width: 2,
               dashArray: [5, 5],
-              markerSettings: MarkerSettings(
-                isVisible: false,
-              ),
+              markerSettings: MarkerSettings(isVisible: false),
             ),
         ],
       ),
@@ -282,9 +283,21 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatCard('Mínimo', '${min.toStringAsFixed(1)} $unit', Colors.green),
-          _buildStatCard('Promedio', '${avg.toStringAsFixed(1)} $unit', Colors.blue),
-          _buildStatCard('Máximo', '${max.toStringAsFixed(1)} $unit', Colors.red),
+          _buildStatCard(
+            'Mínimo',
+            '${min.toStringAsFixed(1)} $unit',
+            Colors.green,
+          ),
+          _buildStatCard(
+            'Promedio',
+            '${avg.toStringAsFixed(1)} $unit',
+            Colors.blue,
+          ),
+          _buildStatCard(
+            'Máximo',
+            '${max.toStringAsFixed(1)} $unit',
+            Colors.red,
+          ),
         ],
       ),
     );
@@ -319,16 +332,19 @@ class _RecordingDetailViewState extends State<RecordingDetailView> {
     // Navegar a una vista para seleccionar otra grabación
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Comparar grabaciones'),
-        content: Text('Esta funcionalidad abrirá la lista de grabaciones para seleccionar una y compararla.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cerrar'),
+      builder:
+          (context) => AlertDialog(
+            title: Text('Comparar grabaciones'),
+            content: Text(
+              'Esta funcionalidad abrirá la lista de grabaciones para seleccionar una y compararla.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cerrar'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 

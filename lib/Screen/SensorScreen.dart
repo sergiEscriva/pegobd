@@ -1,7 +1,8 @@
 // lib/Screen/SensorsScreen.dart
 import 'package:flutter/material.dart';
-import '../connection/ConnectionManager.dart';
-import '../model/SensorData.dart';
+
+import '../features/dashboard/domain/entities/sensor_data.dart';
+import '../shared/services/connection_manager.dart';
 
 class SensorsScreen extends StatefulWidget {
   final ConnectionManager connectionManager;
@@ -56,7 +57,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
-            Text('Cargando sensores...')
+            Text('Cargando sensores...'),
           ],
         ),
       );
@@ -81,10 +82,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
               children: [
                 Text(
                   '${sensor.value} ${sensor.unit}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   _formatTimestamp(sensor.timestamp),

@@ -1,25 +1,27 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
-import 'package:pegobd/service/BluetoothService.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'MockBluethootService.dart';
-import 'Screen/BluetoothDevicesView.dart';
-import 'Screen/SplashScreen.dart';
-import 'Screen/LogViewerScreen.dart';
-import 'connection/ConnectionManager.dart';
-import 'Screen/MainDashboard.dart';
-import 'theme/app_theme.dart';
-import 'utils/SharedPreferencesHelper.dart';
-import 'utils/AppLogger.dart';
+import 'core/theme/app_theme.dart';
+// Utilidades core
+import 'core/utils/app_logger.dart';
+import 'core/utils/storage_helper.dart';
+// Páginas de features
+import 'features/bluetooth/presentation/pages/bluetooth_devices_page.dart';
+import 'features/dashboard/presentation/pages/main_dashboard_page.dart';
+import 'features/logging/presentation/pages/log_viewer_page.dart';
+// Servicios compartidos
+import 'shared/services/bluetooth_service.dart';
+import 'shared/services/connection_manager.dart';
+import 'shared/services/mock_bluetooth_service.dart';
+// Widgets compartidos
+import 'shared/widgets/animated_splash.dart';
 
 // Enum para modos de operación
-enum OperationMode {
-  real,
-  simulator,
-}
+enum OperationMode { real, simulator }
 
 void main() async {
   // Capturar errores de Flutter
@@ -34,16 +36,19 @@ void main() async {
   };
 
   // Capturar errores no manejados
-  runZonedGuarded(() {
-    runApp(MyApp());
-  }, (error, stackTrace) {
-    AppLogger().critical(
-      'Error no manejado en la aplicación',
-      error: error,
-      stackTrace: stackTrace,
-      tag: 'APP',
-    );
-  });
+  runZonedGuarded(
+    () {
+      runApp(MyApp());
+    },
+    (error, stackTrace) {
+      AppLogger().critical(
+        'Error no manejado en la aplicación',
+        error: error,
+        stackTrace: stackTrace,
+        tag: 'APP',
+      );
+    },
+  );
 }
 
 class MyApp extends StatefulWidget {
@@ -86,9 +91,16 @@ class _MyAppState extends State<MyApp> {
       await _logger.info('Aplicación iniciada', tag: 'APP');
 
       await _loadSavedSettings();
-      await Future.delayed(Duration(milliseconds: 500)); // Mínimo tiempo para splash
+      await Future.delayed(
+        Duration(milliseconds: 500),
+      ); // Mínimo tiempo para splash
     } catch (e, stackTrace) {
-      await _logger.error('Error en inicialización', error: e, stackTrace: stackTrace, tag: 'INIT');
+      await _logger.error(
+        'Error en inicialización',
+        error: e,
+        stackTrace: stackTrace,
+        tag: 'INIT',
+      );
     }
   }
 
@@ -98,7 +110,8 @@ class _MyAppState extends State<MyApp> {
     final savedTheme = await SharedPreferencesHelper.getThemeMode();
 
     setState(() {
-      _currentMode = savedMode == 'real' ? OperationMode.real : OperationMode.simulator;
+      _currentMode =
+          savedMode == 'real' ? OperationMode.real : OperationMode.simulator;
       _themeMode = savedTheme;
     });
 
@@ -107,7 +120,9 @@ class _MyAppState extends State<MyApp> {
 
   // Guardar modo seleccionado
   Future<void> _saveMode(OperationMode mode) async {
-    await SharedPreferencesHelper.saveOperationMode(mode.toString().split('.').last);
+    await SharedPreferencesHelper.saveOperationMode(
+      mode.toString().split('.').last,
+    );
   }
 
   // Inicializar servicios según el modo
@@ -119,8 +134,11 @@ class _MyAppState extends State<MyApp> {
         _bluetoothService = RealBluetoothService();
         _logger.info('Servicio Bluetooth Real inicializado', tag: 'SERVICE');
       } else {
-        _bluetoothService = MockBluetoothService();
-        _logger.info('Servicio Bluetooth Simulador inicializado', tag: 'SERVICE');
+        _bluetoothService = MockBluetoothService() as BluetoothService?;
+        _logger.info(
+          'Servicio Bluetooth Simulador inicializado',
+          tag: 'SERVICE',
+        );
       }
 
       _connectionManager = ConnectionManager(
@@ -130,7 +148,10 @@ class _MyAppState extends State<MyApp> {
             setState(() {
               if (_connectionManager!.isConnected) {
                 _isConnectedToRealDevice = !_connectionManager!.isSimulatorMode;
-                _logger.info('Conectado a dispositivo: ${_connectionManager!.connectedDevice?.name}', tag: 'CONNECTION');
+                _logger.info(
+                  'Conectado a dispositivo: ${_connectionManager!.connectedDevice?.name}',
+                  tag: 'CONNECTION',
+                );
               } else {
                 _isConnectedToRealDevice = false;
                 _logger.info('Desconectado del dispositivo', tag: 'CONNECTION');
@@ -146,7 +167,12 @@ class _MyAppState extends State<MyApp> {
 
       _initBluetooth();
     } catch (e, stackTrace) {
-      _logger.error('Error inicializando servicios', error: e, stackTrace: stackTrace, tag: 'SERVICE');
+      _logger.error(
+        'Error inicializando servicios',
+        error: e,
+        stackTrace: stackTrace,
+        tag: 'SERVICE',
+      );
     }
   }
 
@@ -172,9 +198,13 @@ class _MyAppState extends State<MyApp> {
       await _bluetoothService!.startDiscovery();
 
       _bluetoothService!.onDiscovery().listen((result) {
-        print("📱 Dispositivo encontrado: ${result.device.name ?? 'Sin nombre'} - ${result.device.address}");
+        print(
+          "📱 Dispositivo encontrado: ${result.device.name ?? 'Sin nombre'} - ${result.device.address}",
+        );
 
-        if (!devicesList.any((device) => device.address == result.device.address)) {
+        if (!devicesList.any(
+          (device) => device.address == result.device.address,
+        )) {
           if (mounted) {
             setState(() {
               devicesList.add(result.device);
@@ -188,12 +218,10 @@ class _MyAppState extends State<MyApp> {
         await _bluetoothService!.stopDiscovery();
         print("🛑 Búsqueda de dispositivos completada");
       });
-
     } catch (e) {
       print("❌ Error en descubrimiento de dispositivos: $e");
     }
   }
-
 
   void _switchMode(OperationMode newMode) {
     setState(() {
@@ -237,12 +265,13 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<bool> _requestPermissions() async {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
-      Permission.bluetoothScan,
-      Permission.location,
-    ].request();
+    Map<Permission, PermissionStatus> statuses =
+        await [
+          Permission.bluetooth,
+          Permission.bluetoothConnect,
+          Permission.bluetoothScan,
+          Permission.location,
+        ].request();
 
     return statuses.values.every((status) => status.isGranted);
   }
@@ -260,7 +289,8 @@ class _MyAppState extends State<MyApp> {
     if (_themeMode == 'dark') return true;
     if (_themeMode == 'light') return false;
     // Auto: usar tema del sistema
-    return SchedulerBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
+    return SchedulerBinding.instance.platformDispatcher.platformBrightness ==
+        Brightness.dark;
   }
 
   @override
@@ -294,10 +324,7 @@ class _MyAppState extends State<MyApp> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF1976D2),
-                  Color(0xFF2196F3),
-                ],
+                colors: [Color(0xFF1976D2), Color(0xFF2196F3)],
               ),
             ),
             child: Center(
@@ -344,7 +371,11 @@ class _MyAppState extends State<MyApp> {
                 size: 24,
               ),
               SizedBox(width: 8),
-              Text(_currentMode == OperationMode.real ? 'Modo Real' : 'Modo Simulador'),
+              Text(
+                _currentMode == OperationMode.real
+                    ? 'Modo Real'
+                    : 'Modo Simulador',
+              ),
             ],
           ),
           actions: [
@@ -361,41 +392,48 @@ class _MyAppState extends State<MyApp> {
             ),
             // Selector de tema
             PopupMenuButton<String>(
-              icon: Icon(_themeMode == 'dark' ? Icons.dark_mode : _themeMode == 'light' ? Icons.light_mode : Icons.auto_mode),
+              icon: Icon(
+                _themeMode == 'dark'
+                    ? Icons.dark_mode
+                    : _themeMode == 'light'
+                    ? Icons.light_mode
+                    : Icons.auto_mode,
+              ),
               onSelected: _changeTheme,
               tooltip: 'Cambiar tema',
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'light',
-                  child: Row(
-                    children: [
-                      Icon(Icons.light_mode, size: 20),
-                      SizedBox(width: 8),
-                      Text('Claro')
-                    ]
-                  )
-                ),
-                PopupMenuItem(
-                  value: 'dark',
-                  child: Row(
-                    children: [
-                      Icon(Icons.dark_mode, size: 20),
-                      SizedBox(width: 8),
-                      Text('Oscuro')
-                    ]
-                  )
-                ),
-                PopupMenuItem(
-                  value: 'auto',
-                  child: Row(
-                    children: [
-                      Icon(Icons.auto_mode, size: 20),
-                      SizedBox(width: 8),
-                      Text('Auto')
-                    ]
-                  )
-                ),
-              ],
+              itemBuilder:
+                  (context) => [
+                    PopupMenuItem(
+                      value: 'light',
+                      child: Row(
+                        children: [
+                          Icon(Icons.light_mode, size: 20),
+                          SizedBox(width: 8),
+                          Text('Claro'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'dark',
+                      child: Row(
+                        children: [
+                          Icon(Icons.dark_mode, size: 20),
+                          SizedBox(width: 8),
+                          Text('Oscuro'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'auto',
+                      child: Row(
+                        children: [
+                          Icon(Icons.auto_mode, size: 20),
+                          SizedBox(width: 8),
+                          Text('Auto'),
+                        ],
+                      ),
+                    ),
+                  ],
             ),
             IconButton(
               icon: Icon(Icons.settings),
@@ -431,30 +469,35 @@ class _MyAppState extends State<MyApp> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _currentMode == OperationMode.real
-                                ? null
-                                : () => _switchMode(OperationMode.real),
+                            onPressed:
+                                _currentMode == OperationMode.real
+                                    ? null
+                                    : () => _switchMode(OperationMode.real),
                             icon: Icon(Icons.directions_car),
                             label: Text('Modo Real'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _currentMode == OperationMode.real
-                                  ? AppTheme.secondaryColor
-                                  : null,
+                              backgroundColor:
+                                  _currentMode == OperationMode.real
+                                      ? AppTheme.secondaryColor
+                                      : null,
                             ),
                           ),
                         ),
                         SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _currentMode == OperationMode.simulator
-                                ? null
-                                : () => _switchMode(OperationMode.simulator),
+                            onPressed:
+                                _currentMode == OperationMode.simulator
+                                    ? null
+                                    : () =>
+                                        _switchMode(OperationMode.simulator),
                             icon: Icon(Icons.build_circle),
                             label: Text('Simulador'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _currentMode == OperationMode.simulator
-                                  ? AppTheme.primaryColor
-                                  : null,
+                              backgroundColor:
+                                  _currentMode == OperationMode.simulator
+                                      ? AppTheme.primaryColor
+                                      : null,
                             ),
                           ),
                         ),
@@ -474,7 +517,9 @@ class _MyAppState extends State<MyApp> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      _isConnectedToRealDevice ? Icons.bluetooth_connected : Icons.settings_input_component,
+                      _isConnectedToRealDevice
+                          ? Icons.bluetooth_connected
+                          : Icons.settings_input_component,
                       color: Colors.white,
                       size: 20,
                     ),
@@ -496,15 +541,16 @@ class _MyAppState extends State<MyApp> {
 
             // Vista principal
             Expanded(
-              child: _connectionManager!.isConnected
-                  ? MainDashboard(connectionManager: _connectionManager!)
-                  : BluetoothDevicesView(
-                      key: ValueKey('bluetooth_${_currentMode.toString()}'),
-                      bluetoothState: _bluetoothState,
-                      devices: devicesList,
-                      connectionManager: _connectionManager!,
-                      onRefreshDevices: _getPairedDevices,
-                    ),
+              child:
+                  _connectionManager!.isConnected
+                      ? MainDashboard(connectionManager: _connectionManager!)
+                      : BluetoothDevicesView(
+                        key: ValueKey('bluetooth_${_currentMode.toString()}'),
+                        bluetoothState: _bluetoothState,
+                        devices: devicesList,
+                        connectionManager: _connectionManager!,
+                        onRefreshDevices: _getPairedDevices,
+                      ),
             ),
           ],
         ),

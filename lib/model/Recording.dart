@@ -24,10 +24,11 @@ class Recording {
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),
       'sensorPids': sensorPids,
-      'data': data.map((key, value) => MapEntry(
-        key,
-        value.map((point) => point.toJson()).toList(),
-      )),
+      'data': data.map((key, value) =>
+          MapEntry(
+            key,
+            value.map((point) => point.toJson()).toList(),
+          )),
     };
   }
 
@@ -39,10 +40,13 @@ class Recording {
       endTime: DateTime.parse(json['endTime']),
       sensorPids: List<String>.from(json['sensorPids']),
       data: (json['data'] as Map<String, dynamic>).map(
-        (key, value) => MapEntry(
-          key,
-          (value as List).map((point) => SensorDataPoint.fromJson(point)).toList(),
-        ),
+            (key, value) =>
+            MapEntry(
+              key,
+              (value as List)
+                  .map((point) => SensorDataPoint.fromJson(point))
+                  .toList(),
+            ),
       ),
     );
   }

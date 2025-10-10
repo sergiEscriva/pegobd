@@ -1,12 +1,14 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
-import '../connection/ConnectionManager.dart';
-import '../model/SensorData.dart';
-import '../theme/app_theme.dart';
+
+import '../core/theme/app_theme.dart';
+import '../features/dashboard/domain/entities/sensor_data.dart';
 import '../services/RecordingService.dart';
-import 'SensorDetailView.dart';
+import '../shared/services/connection_manager.dart';
 import 'RecordingsListView.dart';
+import 'SensorDetailView.dart';
 
 class UnifiedDashboard extends StatefulWidget {
   final ConnectionManager connectionManager;
@@ -31,7 +33,9 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
   @override
   void initState() {
     super.initState();
-    _sensorSubscription = widget.connectionManager.sensorStream.listen((sensorsData) {
+    _sensorSubscription = widget.connectionManager.sensorStream.listen((
+      sensorsData,
+    ) {
       setState(() {
         _sensors = sensorsData;
       });
@@ -51,7 +55,9 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
       return _sensors;
     }
     return Map.fromEntries(
-      _sensors.entries.where((entry) => widget.selectedSensorPids.contains(entry.key))
+      _sensors.entries.where(
+        (entry) => widget.selectedSensorPids.contains(entry.key),
+      ),
     );
   }
 
@@ -111,27 +117,28 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
 
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Nombre de la grabación'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Nombre',
-            border: OutlineInputBorder(),
+      builder:
+          (context) => AlertDialog(
+            title: Text('Nombre de la grabación'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Nombre',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: Text('Iniciar'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: Text('Iniciar'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -139,7 +146,9 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => RecordingsListView(recordingService: _recordingService),
+        builder:
+            (context) =>
+                RecordingsListView(recordingService: _recordingService),
       ),
     );
   }
@@ -148,10 +157,11 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SensorDetailView(
-          sensor: sensor,
-          sensorStream: widget.connectionManager.sensorStream,
-        ),
+        builder:
+            (context) => SensorDetailView(
+              sensor: sensor,
+              sensorStream: widget.connectionManager.sensorStream,
+            ),
       ),
     );
   }
@@ -182,9 +192,10 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
         _buildRecordingBanner(),
         // Grid de sensores
         Expanded(
-          child: filteredSensors.isEmpty
-              ? _buildEmptyState()
-              : _buildSensorGrid(filteredSensors),
+          child:
+              filteredSensors.isEmpty
+                  ? _buildEmptyState()
+                  : _buildSensorGrid(filteredSensors),
         ),
       ],
     );
@@ -268,9 +279,10 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
       padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: widget.connectionManager.isSimulatorMode
-              ? [AppTheme.primaryBlue, AppTheme.lightBlue]
-              : [AppTheme.primaryGreen, AppTheme.lightGreen],
+          colors:
+              widget.connectionManager.isSimulatorMode
+                  ? [AppTheme.primaryBlue, AppTheme.lightBlue]
+                  : [AppTheme.primaryGreen, AppTheme.lightGreen],
         ),
         boxShadow: [
           BoxShadow(
@@ -294,7 +306,9 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
               ),
               SizedBox(width: 12),
               Text(
-                widget.connectionManager.isSimulatorMode ? 'SIMULADOR' : 'MODO REAL',
+                widget.connectionManager.isSimulatorMode
+                    ? 'SIMULADOR'
+                    : 'MODO REAL',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -316,9 +330,10 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
                 label: Text('Grabar'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
-                  foregroundColor: widget.connectionManager.isSimulatorMode
-                      ? AppTheme.primaryBlue
-                      : AppTheme.primaryGreen,
+                  foregroundColor:
+                      widget.connectionManager.isSimulatorMode
+                          ? AppTheme.primaryBlue
+                          : AppTheme.primaryGreen,
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
               ),
@@ -400,32 +415,39 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(_getSensorIcon(sensor.pid), color: _getSensorColor(sensor.unit), size: 32),
-              SizedBox(height: 8),
+              Icon(
+                _getSensorIcon(sensor.pid),
+                color: _getSensorColor(sensor.unit),
+                size: 28,
+              ),
+              SizedBox(height: 4),
               Text(
                 sensor.name,
                 textAlign: TextAlign.center,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: Colors.black87,
                 ),
               ),
-              Spacer(),
+              SizedBox(height: 4),
               Text(
                 sensor.value,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: _getSensorColor(sensor.unit),
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               Text(
                 sensor.unit,
-                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -436,17 +458,28 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
 
   IconData _getSensorIcon(String pid) {
     switch (pid) {
-      case '04': return Icons.flash_on;
-      case '05': return Icons.device_thermostat;
-      case '0C': return Icons.speed;
-      case '0D': return Icons.directions_car;
-      case '0F': return Icons.ac_unit;
-      case '10': return Icons.air;
-      case '11': return Icons.tune;
-      case '2F': return Icons.local_gas_station;
-      case '5C': return Icons.oil_barrel;
-      case '42': return Icons.battery_charging_full;
-      default: return Icons.sensors;
+      case '04':
+        return Icons.flash_on;
+      case '05':
+        return Icons.device_thermostat;
+      case '0C':
+        return Icons.speed;
+      case '0D':
+        return Icons.directions_car;
+      case '0F':
+        return Icons.ac_unit;
+      case '10':
+        return Icons.air;
+      case '11':
+        return Icons.tune;
+      case '2F':
+        return Icons.local_gas_station;
+      case '5C':
+        return Icons.oil_barrel;
+      case '42':
+        return Icons.battery_charging_full;
+      default:
+        return Icons.sensors;
     }
   }
 
@@ -459,4 +492,3 @@ class _UnifiedDashboardState extends State<UnifiedDashboard> {
     return Colors.blueGrey;
   }
 }
-

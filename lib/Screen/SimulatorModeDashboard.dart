@@ -1,9 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_gauges/gauges.dart';
-import '../connection/ConnectionManager.dart';
-import '../model/SensorData.dart';
-import '../theme/app_theme.dart';
+
+import '../core/theme/app_theme.dart';
+import '../features/dashboard/domain/entities/sensor_data.dart';
+import '../shared/services/connection_manager.dart';
+
 
 class SimulatorModeDashboard extends StatefulWidget {
   final ConnectionManager connectionManager;
@@ -25,7 +28,9 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
   @override
   void initState() {
     super.initState();
-    _sensorSubscription = widget.connectionManager.sensorStream.listen((sensorsData) {
+    _sensorSubscription = widget.connectionManager.sensorStream.listen((
+      sensorsData,
+    ) {
       setState(() {
         _sensors = sensorsData;
       });
@@ -46,7 +51,9 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
     }
 
     return Map.fromEntries(
-      _sensors.entries.where((entry) => widget.selectedSensorPids.contains(entry.key))
+      _sensors.entries.where(
+        (entry) => widget.selectedSensorPids.contains(entry.key),
+      ),
     );
   }
 
@@ -57,7 +64,11 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.build_circle_outlined, size: 64, color: Colors.blue[300]),
+            Icon(
+              Icons.build_circle_outlined,
+              size: 64,
+              color: Colors.blue[300],
+            ),
             SizedBox(height: 16),
             Text(
               'No hay conexión con simulador',
@@ -128,9 +139,10 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
         ),
         // Contenido principal - SOLO SENSORES SELECCIONADOS
         Expanded(
-          child: filteredSensors.isEmpty
-              ? _buildEmptyState()
-              : _buildSensorGrid(filteredSensors),
+          child:
+              filteredSensors.isEmpty
+                  ? _buildEmptyState()
+                  : _buildSensorGrid(filteredSensors),
         ),
       ],
     );
@@ -145,8 +157,8 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
           SizedBox(height: 20),
           Text(
             widget.selectedSensorPids.isEmpty
-              ? 'No hay sensores seleccionados'
-              : 'Esperando datos de sensores...',
+                ? 'No hay sensores seleccionados'
+                : 'Esperando datos de sensores...',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -156,8 +168,8 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
           SizedBox(height: 12),
           Text(
             widget.selectedSensorPids.isEmpty
-              ? 'Presiona el botón ⚙️ para seleccionar sensores'
-              : 'Los datos aparecerán aquí en tiempo real',
+                ? 'Presiona el botón ⚙️ para seleccionar sensores'
+                : 'Los datos aparecerán aquí en tiempo real',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
@@ -207,19 +219,69 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
     if (unit == 'rpm' || unit == 'km/h') {
       double max = unit == 'rpm' ? 8000 : 240;
       Color color = unit == 'rpm' ? Colors.red : Colors.blue;
-      return _buildGauge(title: name, value: value, min: 0, max: max, unit: unit, color: color);
+      return _buildGauge(
+        title: name,
+        value: value,
+        min: 0,
+        max: max,
+        unit: unit,
+        color: color,
+      );
     } else if (unit == '%') {
-      return _buildGauge(title: name, value: value, min: 0, max: 100, unit: unit, color: Colors.green, isSemi: true);
+      return _buildGauge(
+        title: name,
+        value: value,
+        min: 0,
+        max: 100,
+        unit: unit,
+        color: Colors.green,
+        isSemi: true,
+      );
     } else if (unit == '°C') {
-      return _buildBar(title: name, value: value, min: -40, max: 150, unit: unit, color: Colors.orange);
+      return _buildBar(
+        title: name,
+        value: value,
+        min: -40,
+        max: 150,
+        unit: unit,
+        color: Colors.orange,
+      );
     } else if (unit == 'V') {
-      return _buildBar(title: name, value: value, min: 0, max: 20, unit: unit, color: Colors.purple);
+      return _buildBar(
+        title: name,
+        value: value,
+        min: 0,
+        max: 20,
+        unit: unit,
+        color: Colors.purple,
+      );
     } else if (unit == 'kPa' || unit == 'Pa') {
-      return _buildBar(title: name, value: value, min: 0, max: 300, unit: unit, color: Colors.blueGrey);
+      return _buildBar(
+        title: name,
+        value: value,
+        min: 0,
+        max: 300,
+        unit: unit,
+        color: Colors.blueGrey,
+      );
     } else if (unit == 'g/s' || unit == 'L/h') {
-      return _buildBar(title: name, value: value, min: 0, max: 100, unit: unit, color: Colors.teal);
+      return _buildBar(
+        title: name,
+        value: value,
+        min: 0,
+        max: 100,
+        unit: unit,
+        color: Colors.teal,
+      );
     } else if (unit == 's' || unit == 'min' || unit == 'km') {
-      return _buildBar(title: name, value: value, min: 0, max: 10000, unit: unit, color: Colors.indigo);
+      return _buildBar(
+        title: name,
+        value: value,
+        min: 0,
+        max: 10000,
+        unit: unit,
+        color: Colors.indigo,
+      );
     } else {
       return _buildDigital(title: name, value: sensor.value, unit: unit);
     }
@@ -296,7 +358,10 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
                         annotations: [
                           GaugeAnnotation(
                             widget: Container(
-                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(6),
@@ -309,7 +374,9 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
                                 ],
                               ),
                               child: Text(
-                                value != null ? '${value.toStringAsFixed(0)}\n$unit' : 'N/A',
+                                value != null
+                                    ? '${value.toStringAsFixed(0)}\n$unit'
+                                    : 'N/A',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 11,
@@ -376,7 +443,10 @@ class _SimulatorModeDashboardState extends State<SimulatorModeDashboard> {
                 TweenAnimationBuilder<double>(
                   tween: Tween<double>(
                     begin: 0.0,
-                    end: value != null ? ((value - min) / (max - min)).clamp(0.0, 1.0) : 0.0,
+                    end:
+                        value != null
+                            ? ((value - min) / (max - min)).clamp(0.0, 1.0)
+                            : 0.0,
                   ),
                   duration: Duration(milliseconds: 700),
                   curve: Curves.easeInOut,

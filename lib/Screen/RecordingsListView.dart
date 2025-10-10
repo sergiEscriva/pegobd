@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/RecordingService.dart';
+
 import '../model/Recording.dart';
+import '../services/RecordingService.dart';
 import 'RecordingDetailView.dart';
 
 class RecordingsListView extends StatefulWidget {
@@ -26,7 +27,8 @@ class _RecordingsListViewState extends State<RecordingsListView> {
     setState(() => _isLoading = true);
     final recordings = await widget.recordingService.getAllRecordings();
     setState(() {
-      _recordings = recordings..sort((a, b) => b.startTime.compareTo(a.startTime));
+      _recordings =
+          recordings..sort((a, b) => b.startTime.compareTo(a.startTime));
       _isLoading = false;
     });
   }
@@ -34,30 +36,33 @@ class _RecordingsListViewState extends State<RecordingsListView> {
   Future<void> _deleteRecording(Recording recording) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Eliminar grabación'),
-        content: Text('¿Estás seguro de que deseas eliminar "${recording.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancelar'),
+      builder:
+          (context) => AlertDialog(
+            title: Text('Eliminar grabación'),
+            content: Text(
+              '¿Estás seguro de que deseas eliminar "${recording.name}"?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text('Eliminar'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Eliminar'),
-          ),
-        ],
-      ),
     );
 
     if (confirm == true) {
       await widget.recordingService.deleteRecording(recording.id);
       _loadRecordings();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Grabación eliminada')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Grabación eliminada')));
       }
     }
   }
@@ -67,27 +72,28 @@ class _RecordingsListViewState extends State<RecordingsListView> {
 
     final newName = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Renombrar grabación'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Nuevo nombre',
-            border: OutlineInputBorder(),
+      builder:
+          (context) => AlertDialog(
+            title: Text('Renombrar grabación'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Nuevo nombre',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancelar'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, controller.text),
+                child: Text('Guardar'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: Text('Guardar'),
-          ),
-        ],
-      ),
     );
 
     if (newName != null && newName.isNotEmpty && newName != recording.name) {
@@ -112,24 +118,22 @@ class _RecordingsListViewState extends State<RecordingsListView> {
         title: Text('Grabaciones'),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadRecordings,
-          ),
+          IconButton(icon: Icon(Icons.refresh), onPressed: _loadRecordings),
         ],
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : _recordings.isEmpty
+      body:
+          _isLoading
+              ? Center(child: CircularProgressIndicator())
+              : _recordings.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
-                  padding: EdgeInsets.all(16),
-                  itemCount: _recordings.length,
-                  itemBuilder: (context, index) {
-                    final recording = _recordings[index];
-                    return _buildRecordingCard(recording);
-                  },
-                ),
+                padding: EdgeInsets.all(16),
+                itemCount: _recordings.length,
+                itemBuilder: (context, index) {
+                  final recording = _recordings[index];
+                  return _buildRecordingCard(recording);
+                },
+              ),
     );
   }
 
@@ -179,7 +183,11 @@ class _RecordingsListViewState extends State<RecordingsListView> {
                       color: Colors.blue[50],
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.videocam, color: Colors.blue[700], size: 24),
+                    child: Icon(
+                      Icons.videocam,
+                      color: Colors.blue[700],
+                      size: 24,
+                    ),
                   ),
                   SizedBox(width: 12),
                   Expanded(
@@ -212,28 +220,32 @@ class _RecordingsListViewState extends State<RecordingsListView> {
                         _deleteRecording(recording);
                       }
                     },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'rename',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 8),
-                            Text('Renombrar'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Eliminar', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
+                    itemBuilder:
+                        (context) => [
+                          PopupMenuItem(
+                            value: 'rename',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, size: 20),
+                                SizedBox(width: 8),
+                                Text('Renombrar'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete, size: 20, color: Colors.red),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Eliminar',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                   ),
                 ],
               ),
@@ -267,7 +279,11 @@ class _RecordingsListViewState extends State<RecordingsListView> {
     );
   }
 
-  Widget _buildStat({required IconData icon, required String label, required String value}) {
+  Widget _buildStat({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Column(
       children: [
         Icon(icon, size: 20, color: Colors.blue[700]),
@@ -280,13 +296,7 @@ class _RecordingsListViewState extends State<RecordingsListView> {
             color: Colors.black87,
           ),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey[600],
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
       ],
     );
   }
@@ -309,4 +319,3 @@ class _RecordingsListViewState extends State<RecordingsListView> {
     return total;
   }
 }
-

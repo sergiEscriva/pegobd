@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../features/dashboard/domain/entities/sensor_data.dart';
 import '../model/Recording.dart';
-import '../model/SensorData.dart';
 
 class RecordingService {
   static const String _recordingsKey = 'recordings_list';
@@ -17,7 +19,9 @@ class RecordingService {
   StreamSubscription? _sensorSubscription;
 
   bool get isRecording => _isRecording;
+
   String? get currentRecordingName => _currentRecordingName;
+
   DateTime? get recordingStartTime => _recordingStartTime;
 
   /// Inicia una nueva grabación
@@ -54,10 +58,9 @@ class RecordingService {
           final value = double.tryParse(sensor.value);
 
           if (value != null) {
-            _recordingData[pid]?.add(SensorDataPoint(
-              timestamp: now,
-              value: value,
-            ));
+            _recordingData[pid]?.add(
+              SensorDataPoint(timestamp: now, value: value),
+            );
           }
         }
       }
@@ -105,7 +108,8 @@ class RecordingService {
     recordings.add(recording);
 
     // Guardar lista actualizada
-    final recordingsJson = recordings.map((r) => jsonEncode(r.toJson())).toList();
+    final recordingsJson =
+        recordings.map((r) => jsonEncode(r.toJson())).toList();
     await prefs.setStringList(_recordingsKey, recordingsJson);
   }
 
@@ -114,14 +118,17 @@ class RecordingService {
     final prefs = await SharedPreferences.getInstance();
     final recordingsJson = prefs.getStringList(_recordingsKey) ?? [];
 
-    return recordingsJson.map((json) {
-      try {
-        return Recording.fromJson(jsonDecode(json));
-      } catch (e) {
-        print('Error al cargar grabación: $e');
-        return null;
-      }
-    }).whereType<Recording>().toList();
+    return recordingsJson
+        .map((json) {
+          try {
+            return Recording.fromJson(jsonDecode(json));
+          } catch (e) {
+            print('Error al cargar grabación: $e');
+            return null;
+          }
+        })
+        .whereType<Recording>()
+        .toList();
   }
 
   /// Elimina una grabación
@@ -131,7 +138,8 @@ class RecordingService {
 
     recordings.removeWhere((r) => r.id == recordingId);
 
-    final recordingsJson = recordings.map((r) => jsonEncode(r.toJson())).toList();
+    final recordingsJson =
+        recordings.map((r) => jsonEncode(r.toJson())).toList();
     await prefs.setStringList(_recordingsKey, recordingsJson);
   }
 
@@ -152,7 +160,8 @@ class RecordingService {
       );
 
       final prefs = await SharedPreferences.getInstance();
-      final recordingsJson = recordings.map((r) => jsonEncode(r.toJson())).toList();
+      final recordingsJson =
+          recordings.map((r) => jsonEncode(r.toJson())).toList();
       await prefs.setStringList(_recordingsKey, recordingsJson);
     }
   }
@@ -175,4 +184,3 @@ class RecordingService {
     _sensorSubscription?.cancel();
   }
 }
-

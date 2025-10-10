@@ -1,17 +1,16 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
-import '../model/SensorData.dart';
+import 'package:syncfusion_flutter_gauges/gauges.dart';
+
+import '../features/dashboard/domain/entities/sensor_data.dart';
 
 class SensorDetailView extends StatefulWidget {
   final SensorData sensor;
   final Stream<Map<String, SensorData>> sensorStream;
 
-  const SensorDetailView({
-    required this.sensor,
-    required this.sensorStream,
-  });
+  const SensorDetailView({required this.sensor, required this.sensorStream});
 
   @override
   State<SensorDetailView> createState() => _SensorDetailViewState();
@@ -61,10 +60,7 @@ class _SensorDetailViewState extends State<SensorDetailView> {
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: Text(_currentSensor.name),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: Text(_currentSensor.name), centerTitle: true),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20),
         child: Column(
@@ -190,10 +186,7 @@ class _SensorDetailViewState extends State<SensorDetailView> {
                       ),
                       Text(
                         unit,
-                        style: TextStyle(
-                          fontSize: 20,
-                          color: Colors.grey[700],
-                        ),
+                        style: TextStyle(fontSize: 20, color: Colors.grey[700]),
                       ),
                     ],
                   ),
@@ -255,13 +248,7 @@ class _SensorDetailViewState extends State<SensorDetailView> {
         children: [
           Icon(icon, color: color, size: 24),
           SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
-          ),
+          Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           SizedBox(height: 4),
           Text(
             value,
@@ -296,36 +283,35 @@ class _SensorDetailViewState extends State<SensorDetailView> {
         children: [
           Row(
             children: [
-              Icon(Icons.show_chart, color: _getSensorColor(_currentSensor.unit)),
+              Icon(
+                Icons.show_chart,
+                color: _getSensorColor(_currentSensor.unit),
+              ),
               SizedBox(width: 8),
               Text(
                 'Gráfico en tiempo real',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           SizedBox(height: 16),
           Expanded(
-            child: _chartData.isEmpty
-                ? Center(
-                    child: Text(
-                      'Esperando datos...',
-                      style: TextStyle(color: Colors.grey),
+            child:
+                _chartData.isEmpty
+                    ? Center(
+                      child: Text(
+                        'Esperando datos...',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                    : SfCartesianChart(
+                      primaryXAxis: DateTimeAxis(isVisible: false),
+                      primaryYAxis: NumericAxis(
+                        labelStyle: TextStyle(fontSize: 10),
+                      ),
+                      plotAreaBorderWidth: 0,
+                      series: _buildChartSeries(),
                     ),
-                  )
-                : SfCartesianChart(
-                    primaryXAxis: DateTimeAxis(
-                      isVisible: false,
-                    ),
-                    primaryYAxis: NumericAxis(
-                      labelStyle: TextStyle(fontSize: 10),
-                    ),
-                    plotAreaBorderWidth: 0,
-                    series: _buildChartSeries(),
-                  ),
           ),
         ],
       ),
