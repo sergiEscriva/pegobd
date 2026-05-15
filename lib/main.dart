@@ -179,12 +179,27 @@ class _MyAppState extends State<MyApp> {
   Future<void> _getPairedDevices() async {
     if (_bluetoothService == null) return;
 
-    final pairedDevices = await _bluetoothService!.getPairedDevices();
-
-    if (mounted) {
-      setState(() {
-        devicesList = pairedDevices;
-      });
+    try {
+      final pairedDevices = await _bluetoothService!.getPairedDevices();
+      if (mounted) {
+        setState(() {
+          devicesList = pairedDevices;
+        });
+      }
+    } on BluetoothPermissionException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            action: SnackBarAction(
+              label: 'Ajustes',
+              onPressed: openAppSettings,
+            ),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+      return;
     }
 
     await _startDeviceDiscovery();

@@ -3,6 +3,14 @@ import 'dart:async';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+class BluetoothPermissionException implements Exception {
+  final String message;
+  const BluetoothPermissionException(this.message);
+
+  @override
+  String toString() => 'BluetoothPermissionException: $message';
+}
+
 abstract class BluetoothService {
   Future<bool> checkPermissions();
 
@@ -47,14 +55,16 @@ class RealBluetoothService extends BluetoothService {
 
   @override
   Future<List<BluetoothDevice>> getPairedDevices() async {
+    if (!(await checkPermissions())) {
+      throw BluetoothPermissionException(
+        'Permisos Bluetooth no concedidos. Actívalos en Ajustes > Aplicaciones > PegOBD.',
+      );
+    }
     try {
-      if (!(await checkPermissions())) {
-        return [];
-      }
       return await _bluetooth.getBondedDevices();
     } catch (e) {
       print("Error obteniendo dispositivos emparejados: $e");
-      return [];
+      rethrow;
     }
   }
 

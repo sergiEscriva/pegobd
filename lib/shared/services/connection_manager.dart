@@ -191,7 +191,12 @@ class ConnectionManager {
     _reconnectionTimer = Timer(RECONNECTION_DELAY, () async {
       if (connectedDevice != null) {
         print("🔄 Intentando reconectar a ${connectedDevice!.name}...");
-        await connect(connectedDevice!);
+        try {
+          await connect(connectedDevice!);
+        } finally {
+          _isReconnecting = false;
+        }
+      } else {
         _isReconnecting = false;
       }
     });
@@ -212,7 +217,7 @@ class ConnectionManager {
           "ATI",
         );
 
-        if (response == "TIMEOUT" || response == "ERROR") {
+        if (response == ELM327Communication.kTimeout || response == ELM327Communication.kError) {
           print("⚠️ Conexión perdida detectada por timeout");
           _handleDisconnection();
         } else {

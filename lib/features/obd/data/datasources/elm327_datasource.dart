@@ -10,6 +10,9 @@ class ELM327Communication {
   static const int MAX_RETRIES = 3;
   static const Duration COMMAND_TIMEOUT = Duration(seconds: 5);
   static const Duration RESET_DELAY = Duration(seconds: 2);
+  static const String kTimeout = 'TIMEOUT';
+  static const String kError = 'ERROR';
+  static const int _maxBufferBytes = 4096;
   static final AppLogger _logger = AppLogger();
 
   /// Inicializa la comunicación con el adaptador ELM327 con reintentos y manejo robusto de errores
@@ -126,10 +129,10 @@ class ELM327Communication {
       print("  📤 Enviando: $cmd ($desc)");
       final response = await sendCommand(connection, cmd);
 
-      if (response == "TIMEOUT" || response == "ERROR") {
+      if (response == kTimeout || response == kError) {
         print("  ❌ Falló: $cmd - Respuesta: $response");
         if (critical) {
-          return false; // Comando crítico falló
+          return false;
         } else {
           print("  ⚠️ Comando no crítico falló, continuando...");
         }
@@ -145,11 +148,11 @@ class ELM327Communication {
     final testResponse = await sendCommand(connection, "0100");
     bool success =
         testResponse.isNotEmpty &&
-        !testResponse.contains("ERROR") &&
+        !testResponse.contains(kError) &&
         !testResponse.contains("NO DATA") &&
         !testResponse.contains("UNABLE") &&
         !testResponse.contains("STOPPED") &&
-        testResponse != "TIMEOUT";
+        testResponse != kTimeout;
 
     if (success) {
       print("  ✅ Comunicación ECU establecida");
@@ -186,7 +189,7 @@ class ELM327Communication {
       final timer = Timer(COMMAND_TIMEOUT, () {
         if (!completer.isCompleted) {
           subscription?.cancel();
-          completer.complete("TIMEOUT");
+          completer.complete(kTimeout);
         }
       });
 
@@ -194,6 +197,15 @@ class ELM327Communication {
         (Uint8List data) {
           try {
             responseBuffer += String.fromCharCodes(data);
+
+            if (responseBuffer.length > _maxBufferBytes) {
+              timer.cancel();
+              subscription?.cancel();
+              if (!completer.isCompleted) {
+                completer.complete(kError);
+              }
+              return;
+            }
 
             // El ELM327 termina las respuestas con '>' (prompt)
             if (responseBuffer.contains('>')) {
@@ -209,7 +221,7 @@ class ELM327Communication {
             timer.cancel();
             subscription?.cancel();
             if (!completer.isCompleted) {
-              completer.complete("ERROR");
+              completer.complete(kError);
             }
           }
         },
@@ -218,14 +230,14 @@ class ELM327Communication {
           timer.cancel();
           subscription?.cancel();
           if (!completer.isCompleted) {
-            completer.complete("ERROR");
+            completer.complete(kError);
           }
         },
         onDone: () {
           print("⚠️ Stream cerrado prematuramente");
           timer.cancel();
           if (!completer.isCompleted) {
-            completer.complete("ERROR");
+            completer.complete(kError);
           }
         },
       );
@@ -239,7 +251,7 @@ class ELM327Communication {
         stackTrace: stackTrace,
         tag: 'ELM327',
       );
-      return "ERROR";
+      return kError;
     }
   }
 
@@ -308,7 +320,7 @@ class ELM327Communication {
       print("🔄 Reseteando adaptador ELM327...");
       final response = await sendCommand(connection, "ATZ");
       await Future.delayed(RESET_DELAY);
-      return response != "ERROR" && response != "TIMEOUT";
+      return response != kError && response != kTimeout;
     } catch (e) {
       print("❌ Error reseteando adaptador: $e");
       return false;
