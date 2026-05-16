@@ -1,0 +1,1 @@
+enum OperationMode { real, simulator }

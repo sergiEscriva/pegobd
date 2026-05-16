@@ -19,6 +19,9 @@ dependencies:
   intl: ^0.18.0
   path_provider: ^2.1.1
   share_plus: ^7.2.1
+  # Arquitectura Opción A
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.1
 
 dev_dependencies:
   flutter_test:

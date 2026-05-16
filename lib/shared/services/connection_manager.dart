@@ -12,7 +12,7 @@ import '../../features/obd/domain/entities/sensor.dart';
 import 'bluetooth_service.dart';
 import 'mock_bluetooth_service.dart';
 
-class ConnectionManager {
+class ConnectionManager extends ChangeNotifier {
   final BluetoothService _service;
   final AppLogger _logger = AppLogger();
 
@@ -37,9 +37,6 @@ class ConnectionManager {
   // Detectar si está en modo simulador
   bool get isSimulatorMode => _service is MockBluetoothService;
 
-  // Para notificar cambios de estado
-  final VoidCallback onConnectionChanged;
-
   // Para almacenar datos de sensores
   final Map<String, SensorData> _sensorData = {};
   final StreamController<Map<String, SensorData>> _sensorStreamController =
@@ -49,14 +46,14 @@ class ConnectionManager {
   Stream<Map<String, SensorData>> get sensorStream =>
       _sensorStreamController.stream;
 
-  ConnectionManager(this._service, {required this.onConnectionChanged});
+  ConnectionManager(this._service);
 
   Future<void> connect(BluetoothDevice device) async {
     connectedDevice = device;
     isConnecting = true;
     connectionStatus = 'Conectando...';
     _reconnectionAttempts = 0;
-    onConnectionChanged();
+    notifyListeners();
 
     try {
       _logger.info(
@@ -71,7 +68,7 @@ class ConnectionManager {
       }
 
       connectionStatus = 'Inicializando ELM327...';
-      onConnectionChanged();
+      notifyListeners();
 
       // INICIALIZACIÓN ELM327 MEJORADA
       if (!isSimulatorMode) {
@@ -92,7 +89,7 @@ class ConnectionManager {
       }
 
       isConnected = true;
-      onConnectionChanged();
+      notifyListeners();
 
       // Escuchar datos de entrada
       _connection!.input!.listen(
@@ -138,7 +135,7 @@ class ConnectionManager {
       );
       connectionStatus = 'Error: $e';
       isConnected = false;
-      onConnectionChanged();
+      notifyListeners();
 
       // Intentar reconexión automática
       if (_autoReconnectEnabled && connectedDevice != null) {
@@ -146,7 +143,7 @@ class ConnectionManager {
       }
     } finally {
       isConnecting = false;
-      onConnectionChanged();
+      notifyListeners();
     }
   }
 
@@ -161,7 +158,7 @@ class ConnectionManager {
     connectionStatus = 'Desconectado';
     _sensorTimer?.cancel();
     _connectionCheckTimer?.cancel();
-    onConnectionChanged();
+    notifyListeners();
 
     // Intentar reconexión automática si está habilitado
     if (_autoReconnectEnabled && connectedDevice != null && !_isReconnecting) {
@@ -174,7 +171,7 @@ class ConnectionManager {
     if (_reconnectionAttempts >= MAX_RECONNECTION_ATTEMPTS) {
       print("❌ Número máximo de intentos de reconexión alcanzado");
       connectionStatus = 'Reconexión fallida';
-      onConnectionChanged();
+      notifyListeners();
       return;
     }
 
@@ -183,7 +180,7 @@ class ConnectionManager {
 
     connectionStatus =
         'Reconectando (${_reconnectionAttempts}/$MAX_RECONNECTION_ATTEMPTS)...';
-    onConnectionChanged();
+    notifyListeners();
 
     print("🔄 Programando reconexión (intento $_reconnectionAttempts)...");
 
@@ -344,16 +341,18 @@ class ConnectionManager {
     connectionStatus = 'Desconectado';
     connectedDevice = null;
 
-    onConnectionChanged();
+    notifyListeners();
 
     // Re-habilitar reconexión automática para futuras conexiones
     _autoReconnectEnabled = true;
   }
 
+  @override
   void dispose() {
     _sensorTimer?.cancel();
     _reconnectionTimer?.cancel();
     _connectionCheckTimer?.cancel();
     _sensorStreamController.close();
+    super.dispose();
   }
 }

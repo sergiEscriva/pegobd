@@ -1,165 +1,100 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:pegobd/Screen/UnifiedDashboard.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/storage_helper.dart';
-import '../../../../shared/services/connection_manager.dart';
 import '../../../obd/presentation/pages/sensor_selection_page.dart';
+import 'unified_dashboard_page.dart';
 
-class MainDashboard extends StatefulWidget {
-  final ConnectionManager connectionManager;
-
-  const MainDashboard({super.key, required this.connectionManager});
+/// Scaffold del dashboard con AppBar propia: título + indicador de conexión,
+/// botón de desconexión y botón de configuración de sensores.
+class MainDashboard extends ConsumerStatefulWidget {
+  const MainDashboard({super.key});
 
   @override
-  State<MainDashboard> createState() => _MainDashboardState();
+  ConsumerState<MainDashboard> createState() => _MainDashboardState();
 }
 
-class _MainDashboardState extends State<MainDashboard> {
-  List<String> _selectedSensorPids = [];
-  Timer? _statusUpdateTimer;
-
+class _MainDashboardState extends ConsumerState<MainDashboard> {
   @override
   void initState() {
     super.initState();
-    _loadSelectedSensors();
-    _startStatusMonitoring();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSensors());
   }
 
-  @override
-  void dispose() {
-    _statusUpdateTimer?.cancel();
-    super.dispose();
-  }
-
-  // Monitorear estado de conexión
-  void _startStatusMonitoring() {
-    _statusUpdateTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {}); // Actualizar UI con estado de conexión
-      }
-    });
-  }
-
-  Future<void> _loadSelectedSensors() async {
-    // Intentar cargar sensores específicos del vehículo conectado
-    final deviceAddress = widget.connectionManager.connectedDevice?.address;
+  Future<void> _loadSensors() async {
+    final manager = ref.read(connectionManagerProvider);
+    final deviceAddress = manager.connectedDevice?.address;
 
     List<String> sensors;
     if (deviceAddress != null) {
-      // Intentar cargar sensores específicos del vehículo
-      final vehicleSensors = await SharedPreferencesHelper.getVehicleSensors(
-        deviceAddress,
-      );
-
-      if (vehicleSensors != null) {
-        sensors = vehicleSensors;
-        print("📂 Sensores cargados del caché del vehículo");
-      } else {
-        // Cargar sensores por defecto
-        sensors = await SharedPreferencesHelper.getSelectedSensors();
-        print("📋 Sensores por defecto cargados");
-      }
+      sensors = await SharedPreferencesHelper.getVehicleSensors(deviceAddress) ??
+          await SharedPreferencesHelper.getSelectedSensors();
     } else {
       sensors = await SharedPreferencesHelper.getSelectedSensors();
     }
 
-    setState(() {
-      _selectedSensorPids = sensors;
-    });
-  }
-
-  Future<void> _openSensorSelection() async {
-    final result = await Navigator.push<List<String>>(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => SensorSelectionView(
-              connectionManager: widget.connectionManager,
-              onSensorsSelected: (selectedPids) async {
-                setState(() {
-                  _selectedSensorPids = selectedPids;
-                });
-
-                // Guardar en caché global
-                await SharedPreferencesHelper.saveSelectedSensors(selectedPids);
-
-                // Guardar en caché específico del vehículo
-                final deviceAddress =
-                    widget.connectionManager.connectedDevice?.address;
-                if (deviceAddress != null) {
-                  await SharedPreferencesHelper.saveVehicleSensors(
-                    deviceAddress,
-                    selectedPids,
-                  );
-                }
-              },
-            ),
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedSensorPids = result;
-      });
-
-      // Guardar también aquí
-      await SharedPreferencesHelper.saveSelectedSensors(result);
-      final deviceAddress = widget.connectionManager.connectedDevice?.address;
-      if (deviceAddress != null) {
-        await SharedPreferencesHelper.saveVehicleSensors(deviceAddress, result);
-      }
+    if (mounted) {
+      ref.read(selectedSensorsProvider.notifier).state = sensors;
     }
   }
 
-  void _disconnectAndGoBack() {
-    // Mostrar diálogo de confirmación
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.warning_amber, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Desconectar'),
-            ],
-          ),
-          content: Text(
-            '¿Estás seguro de que deseas desconectar el dispositivo?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await widget.connectionManager.disconnect();
-                if (mounted) {
-                  Navigator.pop(context); // Cerrar diálogo
-                  // No necesitamos Navigator.pop adicional porque main.dart maneja el cambio
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: Text('Desconectar'),
-            ),
-          ],
-        );
-      },
+  Future<void> _openSensorSelection() async {
+    final manager = ref.read(connectionManagerProvider);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SensorSelectionView(
+          connectionManager: manager,
+          onSensorsSelected: (pids) async {
+            ref.read(selectedSensorsProvider.notifier).state = pids;
+            await SharedPreferencesHelper.saveSelectedSensors(pids);
+            final addr = manager.connectedDevice?.address;
+            if (addr != null) {
+              await SharedPreferencesHelper.saveVehicleSensors(addr, pids);
+            }
+          },
+        ),
+      ),
     );
+  }
+
+  Future<void> _confirmDisconnect() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Row(children: [
+          Icon(Icons.warning_amber, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Desconectar'),
+        ]),
+        content: const Text('¿Deseas desconectar el dispositivo?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Desconectar',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(connectionManagerProvider).disconnect();
+      // GoRouter redirige automáticamente a HomeScreen porque
+      // connectionManagerProvider notifica el cambio a sus oyentes.
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final deviceName =
-        widget.connectionManager.connectedDevice?.name ?? 'Dispositivo';
-    final connectionStatus = widget.connectionManager.connectionStatus;
-    final isConnected = widget.connectionManager.isConnected;
+    final manager = ref.watch(connectionManagerProvider);
+    final selectedPids = ref.watch(selectedSensorsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -167,10 +102,9 @@ class _MainDashboardState extends State<MainDashboard> {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Dashboard OBD', style: TextStyle(fontSize: 18)),
-            SizedBox(height: 2),
+            const Text('Dashboard OBD', style: TextStyle(fontSize: 18)),
+            const SizedBox(height: 2),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -178,53 +112,46 @@ class _MainDashboardState extends State<MainDashboard> {
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isConnected ? Colors.greenAccent : Colors.redAccent,
+                    color: manager.isConnected
+                        ? Colors.greenAccent
+                        : Colors.redAccent,
                   ),
                 ),
-                SizedBox(width: 6),
-                Text(
-                  connectionStatus,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-                ),
+                const SizedBox(width: 6),
+                Text(manager.connectionStatus,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.normal)),
               ],
             ),
           ],
         ),
         leading: IconButton(
-          icon: Icon(Icons.bluetooth_disabled),
+          icon: const Icon(Icons.bluetooth_disabled),
           tooltip: 'Desconectar',
-          onPressed: _disconnectAndGoBack,
+          onPressed: _confirmDisconnect,
         ),
         actions: [
-          // Mostrar contador de sensores seleccionados
-          if (_selectedSensorPids.isNotEmpty)
+          if (selectedPids.isNotEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Chip(
-                  avatar: Icon(Icons.sensors, size: 16, color: Colors.white),
-                  label: Text(
-                    '${_selectedSensorPids.length}',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  avatar: const Icon(Icons.sensors, size: 16, color: Colors.white),
+                  label: Text('${selectedPids.length}',
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                   backgroundColor: Colors.green[700],
                 ),
               ),
             ),
           IconButton(
-            icon: Icon(Icons.tune),
-            tooltip: 'Configurar Sensores',
+            icon: const Icon(Icons.tune),
+            tooltip: 'Configurar sensores',
             onPressed: _openSensorSelection,
           ),
         ],
       ),
-      body: UnifiedDashboard(
-        connectionManager: widget.connectionManager,
-        selectedSensorPids: _selectedSensorPids,
-      ),
+      body: const UnifiedDashboardPage(),
     );
   }
 }
